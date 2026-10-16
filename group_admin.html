@@ -1,0 +1,2295 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏢 企業團購訂餐管理後台 (人事統籌 & 部門助理審核)</title>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-light: #eff6ff;
+      --accent: #d97706;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --sub: #64748b;
+      --border: #e2e8f0;
+      --green: #15803d;
+      --rose: #e11d48;
+      --purple: #6d28d9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+    .navbar {
+      background: #0f172a;
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 90;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .nav-brand {
+      font-size: 19px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .role-badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #3b82f6;
+      color: white;
+      font-weight: 700;
+    }
+    .btn {
+      padding: 9px 15px;
+      border-radius: 10px;
+      border: none;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-green { background: var(--green); color: white; }
+    .btn-orange { background: var(--accent); color: white; }
+    .btn-purple { background: var(--purple); color: white; }
+    .btn-gray { background: #e2e8f0; color: #334155; }
+    .btn-danger { background: var(--rose); color: white; }
+    .btn-danger-outline { background: #fff1f2; color: var(--rose); border: 1px solid #fecdd3; }
+
+    .main-tabs {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      overflow-x: auto;
+      padding: 0 16px;
+      position: sticky;
+      top: 58px;
+      z-index: 85;
+    }
+    .main-tab-btn {
+      padding: 14px 18px;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--sub);
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .main-tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 20px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .card h3 {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 14px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .input-field {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-top: 4px;
+      margin-bottom: 12px;
+    }
+    .store-select-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 12px;
+    }
+    .store-check-card {
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      transition: all 0.15s;
+      background: #f8fafc;
+    }
+    .store-check-card.checked {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .orders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+    .order-card {
+      background: white;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.04);
+      border: 1px solid var(--border);
+      border-left: 6px solid var(--accent);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .order-card.approved { border-left-color: var(--green); }
+    .badge {
+      padding: 4px 9px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .badge-wait { background: #fef3c7; color: #b45309; }
+    .badge-ok { background: #dcfce7; color: #15803d; }
+    .badge-paid { background: #dbeafe; color: #1e40af; }
+    .badge-unpaid { background: #ffe4e6; color: #be123c; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.68);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 16px;
+    }
+    .modal-box {
+      background: white;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 560px;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 22px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+    }
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 700;
+      display: none;
+      z-index: 9999;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    table.data-table th, table.data-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 8px;
+      text-align: left;
+    }
+    table.data-table th {
+      background: #f8fafc;
+      font-weight: 800;
+      color: #334155;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toast">提示訊息</div>
+
+  <!-- 總部遠端停權鎖定遮罩 -->
+  <div id="licenseLockOverlay" class="modal-overlay" style="z-index: 9000; background: rgba(2, 6, 23, 0.96); display: none;">
+    <div class="modal-box" style="text-align: center; max-width: 440px; padding: 36px 24px; background: #1e293b; color: white; border: 1px solid #334155;">
+      <div style="font-size: 48px; margin-bottom: 12px;">🔒</div>
+      <h2 style="color: #f43f5e; font-size: 24px; margin-bottom: 12px;">系統授權已暫停</h2>
+      <p id="licenseLockReasonText" style="font-size: 15px; color: #cbd5e1; line-height: 1.6; white-space: pre-line;">
+        本系統授權目前已暫停或到期，請聯繫系統服務商辦理續約開通。
+      </p>
+    </div>
+  </div>
+
+  <!-- Confirm 視窗 -->
+  <div id="confirmModal" class="modal-overlay" style="z-index: 300;">
+    <div class="modal-box" style="max-width: 400px; text-align: center;">
+      <h3 style="font-size: 18px; margin-bottom: 10px;">系統確認</h3>
+      <p id="confirmText" style="font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 20px; white-space: pre-line;"></p>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-gray" style="flex: 1;" onclick="closeConfirm(false)">取消</button>
+        <button class="btn btn-primary" style="flex: 1;" onclick="closeConfirm(true)">確定執行</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 首次啟用裝置綁定鎖 -->
+  <div id="deviceActivationOverlay" class="modal-overlay" style="display:none; background:#020617; z-index:2000;">
+    <div class="modal-box" style="max-width:400px; text-align:center; padding:32px 24px; background:#1e293b; color:#fff; border:1px solid #f59e0b;">
+      <div style="font-size:44px; margin-bottom:10px;">🛡️</div>
+      <h2 style="margin-bottom:8px; color:#f59e0b;">首次啟用・裝置授權綁定</h2>
+      <p style="font-size:13px; color:#cbd5e1; line-height:1.6; margin-bottom:18px;">
+        此設備尚未經過系統商授權綁定。<br>請輸入「首次裝置啟用授權碼」(預設 888888) 解鎖後台。
+      </p>
+      <input type="password" id="deviceActivationInput" class="input-field" style="text-align:center; font-size:22px; letter-spacing:6px; background:#0f172a; color:#f59e0b; border-color:#475569;" placeholder="••••••">
+      <button class="btn" style="width:100%; padding:13px; font-size:16px; background:#f59e0b; color:#0f172a;" onclick="verifyDeviceActivation()">🔑 驗證並永久綁定此裝置</button>
+    </div>
+  </div>
+
+  <!-- 登入畫面 (支援人事總管理員 與 各部門助理分流登入) -->
+  <div id="loginOverlay" class="modal-overlay" style="display:flex; background:#0f172a; z-index:1000;">
+    <div class="modal-box" style="max-width:400px; text-align:center; padding:30px 24px;">
+      <div style="font-size:42px; margin-bottom:8px;">🏢</div>
+      <h2 id="loginCompanyTitle" style="margin-bottom:6px;">企業團購訂餐管理後台</h2>
+      <p style="font-size:13px; color:var(--sub); margin-bottom:16px;">請選擇您的登入身分並輸入對應管理密碼</p>
+
+      <div style="text-align:left; margin-bottom:10px;">
+        <label style="font-size:12px; font-weight:bold; color:#475569;">選擇登入角色 / 部門</label>
+        <select id="loginRoleSelect" class="input-field" style="margin-bottom:8px; font-weight:bold;">
+          <option value="HR_MASTER">👑 人事/總務統籌窗口 (全公司最高權限)</option>
+        </select>
+        <label style="font-size:12px; font-weight:bold; color:#475569;">管理登入密碼</label>
+        <input type="password" id="pinInput" class="input-field" style="text-align:center; font-size:22px; letter-spacing:6px; margin-bottom:4px;" placeholder="••••">
+        <div style="font-size:11px; color:#64748b; text-align:center;">(人事預設密碼：1111 ｜ 資訊部助理預設：it888)</div>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; padding:12px; font-size:16px; margin-top:8px;" onclick="verifyRoleLogin()">🔓 登入管理系統</button>
+      <div style="margin-top:12px; font-size:11px; color:#10b981; font-weight:bold;">✅ 本設備已通過系統商授權綁定</div>
+    </div>
+  </div>
+
+  <!-- 頂部導覽列 -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span>🏢</span>
+      <span id="navCompanyName">企業員工團購訂餐系統</span>
+      <span id="currentRoleBadge" class="role-badge">人事統籌</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-orange" onclick="openProxyOrderModal()">➕ 代客點餐 (幫員工補單)</button>
+      <button class="btn btn-gray" onclick="openQrShareModal()">📱 員工訂餐 QR Code</button>
+      <button class="btn btn-danger-outline" onclick="logoutAdmin()">🚪 切換身分/登出</button>
+    </div>
+  </nav>
+
+  <!-- 主分頁導覽列 -->
+  <div class="main-tabs">
+    <button id="tabBtn_session" class="main-tab-btn active" onclick="switchTab('session')">📣 今日開團與預出單</button>
+    <button id="tabBtn_approval" class="main-tab-btn" onclick="switchTab('approval')">✅ 部門訂單審核 (<span id="pendingApproveCount">0</span>)</button>
+    <button id="tabBtn_DualReport" class="main-tab-btn" onclick="switchTab('DualReport')">📊 人事雙視角報表 (叫餐 & 收錢)</button>
+    <button id="tabBtn_stores" class="main-tab-btn" onclick="switchTab('stores')">🍱 店家與菜單庫 (<span id="totalStoresBadge">0</span>家)</button>
+    <button id="tabBtn_settings" class="main-tab-btn" onclick="switchTab('settings')">⚙️ 部門與系統設定</button>
+  </div>
+
+  <!-- ================= 分頁 1：今日開團與預出單 (人事專屬) ================= -->
+  <div id="tab_session" class="container">
+    <div class="card" style="border-left: 6px solid var(--primary);">
+      <h3>
+        <span>📣 發起今日團購訂餐 (從菜單庫勾選今日開放店家)</span>
+        <span id="sessionStatusBadge" class="badge badge-ok">狀態載入中</span>
+      </h3>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:14px;">
+        <div>
+          <label style="font-size:13px; font-weight:bold;">📅 開團日期與場次名稱</label>
+          <input type="text" id="sessTitleInput" class="input-field" placeholder="例：今日午餐團購 (便當+飲料)">
+        </div>
+        <div>
+          <label style="font-size:13px; font-weight:bold;">⏰ 截止點餐時間 (時間到自動鎖單)</label>
+          <input type="time" id="sessDeadlineInput" class="input-field" value="10:20">
+        </div>
+        <!-- 進階功能：動態訂餐密碼 -->
+        <div id="dynamicPinSettingBox">
+          <label style="font-size:13px; font-weight:bold; color:var(--purple);">🔐 本次 LINE 群動態訂餐碼 (防外人亂點)</label>
+          <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">
+            <input type="text" id="sessDynamicPinInput" class="input-field" style="margin:0; font-weight:bold; letter-spacing:3px;" placeholder="留空代表免密碼 (例: 582)">
+            <button class="btn btn-gray" onclick="generateRandomDynamicPin()">🎲 隨機</button>
+          </div>
+        </div>
+        <!-- 進階功能：公司公費補助額度 -->
+        <div id="subsidySettingBox" style="display:none;">
+          <label style="font-size:13px; font-weight:bold; color:var(--green);">💰 本場次每人公費補助金額 ($)</label>
+          <input type="number" id="sessSubsidyInput" class="input-field" value="0" placeholder="0 代表全額自付">
+        </div>
+      </div>
+
+      <!-- 進階功能：預出單自動定時發布 -->
+      <div id="preScheduleSettingBox" style="display:none; background:#fffbeb; border:1px solid #fde68a; padding:12px 16px; border-radius:12px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <strong style="font-size:14px; color:#b45309;">⏳ 【進階模組】預出單自動定時發布排程</strong>
+            <p style="font-size:12px; color:#92400e; margin-top:2px;">事先設定好開放時間，時間未到前員工端顯示預告，時間一到自動開放點餐！</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <label style="font-size:13px; font-weight:bold; color:#b45309;">預定開放時間：</label>
+            <input type="datetime-local" id="sessStartTimeInput" class="input-field" style="width:auto; margin:0; background:#fff;">
+          </div>
+        </div>
+      </div>
+
+      <!-- 常用組合快捷載入 -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+        <label style="font-size:14px; font-weight:800; color:var(--primary);">
+          👇 請勾選本次開放給員工看的店家（員工手機將「只能看到」您勾選的這幾家）：
+        </label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-gray" style="padding:6px 10px; font-size:12px;" onclick="quickSelectStores([0, 1, 2])">⚡ 快選前 3 家</button>
+          <button class="btn btn-gray" style="padding:6px 10px; font-size:12px;" onclick="clearSelectedStores()">取消全選</button>
+        </div>
+      </div>
+
+      <div id="sessionStorePickGrid" class="store-select-grid" style="margin-bottom:18px;"></div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:16px;">
+        <button class="btn btn-primary" style="flex:2; padding:13px; font-size:15px;" onclick="publishGroupSession(true)">
+          🚀 立即發布 / 更新今日開團設定
+        </button>
+        <button class="btn btn-orange" onclick="extendSessionDeadline(10)">⏱️ 延長 10 分鐘結單</button>
+        <button class="btn btn-danger" onclick="publishGroupSession(false)">🛑 立即手動強制截單鎖定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 分頁 2：部門訂單審核與管理 (助理 & 人事共用) ================= -->
+  <div id="tab_approval" class="container" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+        <div>
+          <h2 style="font-size:18px; font-weight:800;" id="approvalHeaderTitle">✅ 部門員工點餐審核與即時清單</h2>
+          <p style="font-size:13px; color:var(--sub); margin-top:4px;" id="approvalSubNotice">
+            部門助理核對無誤後請點擊「核准送出」，只有核准後的訂單才會匯入人事總務的店家叫餐統計表！
+          </p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <select id="approvalDeptFilter" class="input-field" style="width:auto; margin:0;" onchange="renderApprovalOrders()">
+            <option value="ALL">🏢 顯示全公司所有部門</option>
+          </select>
+          <button class="btn btn-green" onclick="batchApproveVisibleOrders()">✅ 一鍵全部核准送出</button>
+        </div>
+      </div>
+
+      <div id="approvalOrdersGrid" class="orders-grid"></div>
+    </div>
+  </div>
+
+  <!-- ================= 分頁 3：人事神級「雙視角整合報表」 ================= -->
+  <div id="tab_DualReport" class="container" style="display:none;">
+    <!-- 頂部報表切換與日期過濾 -->
+    <div class="card" style="padding:16px 20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="viewBtn_store" class="btn btn-primary" onclick="switchReportSubView('store')">
+            📞 視角 ①：打電話給店家叫餐彙整表 (附 LINE 複製)
+          </button>
+          <button id="viewBtn_employee" class="btn btn-gray" onclick="switchReportSubView('employee')">
+            🍱 視角 ②：便當送達發放 ＆ 員工收錢/扣薪表
+          </button>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <label style="font-size:13px; font-weight:bold;">查詢範圍：</label>
+          <select id="reportPeriodSelect" class="input-field" style="width:auto; margin:0; padding:7px 12px;" onchange="renderDualReports()">
+            <option value="today" selected>📅 今日開團訂單</option>
+            <option value="month">🗓️ 本月累計總表 (月底結算對帳)</option>
+            <option value="all">📜 全部歷史紀錄</option>
+          </select>
+          <!-- 進階功能：匯出月底薪資扣款 Excel -->
+          <button id="btnExportPayrollCsv" class="btn btn-green" style="display:none;" onclick="exportPayrollCSV()">
+            📥 匯出會計扣薪/帳務 Excel (CSV)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 視角 1：各店家叫餐統計表 -->
+    <div id="subView_storeCall"></div>
+
+    <!-- 視角 2：員工領餐與收款勾選表 -->
+    <div id="subView_empCollect" style="display:none;"></div>
+  </div>
+
+  <!-- ================= 分頁 4：店家與菜單庫管理 (內建 11 家真實菜單) ================= -->
+  <div id="tab_stores" class="container" style="display:none;">
+    <div class="card" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: white;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+        <div>
+          <h3 style="color:#fbbf24; border:none; padding:0; margin-bottom:6px;">🌟 第一版 11 家真實合作店家菜單庫・一鍵建置</h3>
+          <p style="font-size:13px; color:#e0e7ff; line-height:1.5;">
+            內建：阿正現炒、正樽當歸鴨、饗叮噹食堂、小南便當、悟饕池上飯包、嘉義阿雲火雞肉飯、天青好時光、炒霸炒飯、六甲鍋燒、甲一飯包、甲味鴨片飯（共 11 家完整菜單與客製化規格）！
+          </p>
+        </div>
+        <button class="btn" style="background:#f59e0b; color:#0f172a; font-size:14px; padding:12px 18px; font-weight:900;" onclick="importAll11RealStores()">
+          📥 一鍵載入 11 家真實名店完整菜單庫
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>
+        <span>🏪 合作店家列表與菜單維護</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="manageStoreSelect" class="input-field" style="width:auto; margin:0; font-weight:bold;" onchange="renderStoreMenuEditor()"></select>
+          <button class="btn btn-primary" onclick="openAddStoreModal()">＋ 新增合作店家</button>
+          <button class="btn btn-green" onclick="openAddMenuItemModal()">＋ 新增此店菜色</button>
+          <button class="btn btn-danger-outline" onclick="deleteSelectedStore()">🗑️ 刪除此店家</button>
+        </div>
+      </h3>
+      <div id="storeMetaInfoBar" style="background:#f8fafc; padding:10px 14px; border-radius:10px; margin-bottom:14px; font-size:13px; color:#334155;"></div>
+      <div id="storeMenuItemsContainer"></div>
+    </div>
+  </div>
+
+  <!-- ================= 分頁 5：部門與系統設定 ================= -->
+  <div id="tab_settings" class="container" style="display:none;">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap:20px; align-items:start;">
+      
+      <!-- 左欄：公司基本資訊 & 二層/三層審核模式切換 -->
+      <div class="card">
+        <h3>🏢 企業基本設定與審核流程切換</h3>
+        <label style="font-size:12px; font-weight:bold;">公司 / 機構名稱</label>
+        <input type="text" id="setCompanyName" class="input-field" placeholder="例：台灣科技股份有限公司">
+
+        <label style="font-size:12px; font-weight:bold;">訂餐公告與注意事項 (顯示於員工端頂部)</label>
+        <textarea id="setCompanyNotice" class="input-field" rows="3" placeholder="例：每日 10:20 準時結單，便當送達後請各部門派員至茶水間領取。"></textarea>
+
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:14px; border-radius:12px; margin-bottom:16px;">
+          <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; font-weight:800; font-size:14px; color:#1e40af;">
+            <span>🔄 啟用「部門助理分層審核制」(三層架構)</span>
+            <input type="checkbox" id="setRequireDeptApproval" style="width:20px; height:20px;" checked>
+          </label>
+          <p style="font-size:12px; color:#3b82f6; margin-top:6px; line-height:1.5;">
+            • <strong>開啟 (預設，適合中大企業)</strong>：員工點完餐需由該部門助理按「核准」才算正式成立。<br>
+            • <strong>關閉 (適合小公司兩層架構)</strong>：員工送出訂單即自動核准，直接進入人事叫餐總表！
+          </p>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%; margin-bottom:18px;" onclick="saveCompanySettings()">💾 儲存企業與流程設定</button>
+
+        <hr style="border:none; border-top:1px dashed var(--border); margin:16px 0;">
+        <h4 style="font-size:15px; font-weight:800; margin-bottom:10px;">🔑 修改人事總務最高管理密碼 (預設 1111)</h4>
+        <input type="password" id="newHrPinInput" class="input-field" placeholder="輸入新 4~8 位數人事總密碼">
+        <button class="btn btn-green" style="width:100%;" onclick="updateHrMasterPin()">💾 更新人事總密碼</button>
+      </div>
+
+      <!-- 右欄：部門清單與部門助理專屬密碼設定 -->
+      <div class="card">
+        <h3>👥 部門清單 ＆ 部門助理專屬登入密碼設定</h3>
+        <p style="font-size:12px; color:var(--sub); margin-bottom:12px; line-height:1.5;">
+          在此設定公司有哪些部門，以及各部門助理的專屬登入密碼。助理用該密碼登入後台時，將<strong>只看得到該部門成員的訂單</strong>。
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1.2fr 1fr 1fr auto; gap:6px; margin-bottom:12px;">
+          <input type="text" id="newDeptName" class="input-field" style="margin:0;" placeholder="部門名稱(例:研發部)">
+          <input type="text" id="newDeptAssistant" class="input-field" style="margin:0;" placeholder="助理姓名">
+          <input type="text" id="newDeptPin" class="input-field" style="margin:0;" placeholder="專屬密碼(例:rd888)">
+          <button class="btn btn-primary" onclick="addDepartmentConfig()">＋新增</button>
+        </div>
+
+        <div id="departmentsConfigList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈窗區：新增店家 / 新增菜色 / 代客點餐 / QR Code ================= -->
+  <div id="addStoreModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:420px;">
+      <h3 style="margin-bottom:12px;">🏪 新增合作店家</h3>
+      <label style="font-size:12px; font-weight:bold;">店家名稱 *</label>
+      <input type="text" id="modalStoreNameInput" class="input-field" placeholder="例：50嵐 / 八方雲集">
+      <label style="font-size:12px; font-weight:bold;">店家電話</label>
+      <input type="text" id="modalStorePhoneInput" class="input-field" placeholder="例：06-2707718">
+      <label style="font-size:12px; font-weight:bold;">店家地址 / 外送門檻備註</label>
+      <input type="text" id="modalStoreNoteInput" class="input-field" placeholder="例：滿 500 元外送，請於 10:00 前預訂">
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-gray" style="flex:1;" onclick="document.getElementById('addStoreModal').style.display='none'">取消</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="saveNewStore()">💾 儲存店家</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="addMenuItemModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:460px;">
+      <h3 style="margin-bottom:12px;">🍱 新增/編輯店家菜色</h3>
+      <label style="font-size:12px; font-weight:bold;">分類名稱 (例：便當類、飯類、湯類、飲品)</label>
+      <input type="text" id="itemCatInput" class="input-field" placeholder="例：便當類">
+      <label style="font-size:12px; font-weight:bold;">餐點名稱 *</label>
+      <input type="text" id="itemNameInput" class="input-field" placeholder="例：招牌雞腿便當">
+      <label style="font-size:12px; font-weight:bold;">單價 ($) *</label>
+      <input type="number" id="itemPriceInput" class="input-field" placeholder="例：110">
+      <label style="font-size:12px; font-weight:bold;">客製化選項 (逗號分隔，格式：選項名稱:加價金額)</label>
+      <input type="text" id="itemAddonsInput" class="input-field" placeholder="例：不要蛋換配菜:0, 加飯:10, 小辣:0">
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-gray" style="flex:1;" onclick="document.getElementById('addMenuItemModal').style.display='none'">取消</button>
+        <button class="btn btn-green" style="flex:1;" onclick="saveNewMenuItem()">💾 儲存菜色</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 人事/助理 代客點餐 Modal -->
+  <div id="proxyOrderModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:540px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3>➕ 代員工點餐 / 補單</h3>
+        <button class="btn btn-gray" onclick="document.getElementById('proxyOrderModal').style.display='none'">✕</button>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+        <div>
+          <label style="font-size:12px; font-weight:bold;">所屬部門</label>
+          <select id="proxyDeptSelect" class="input-field"></select>
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:bold;">員工姓名 *</label>
+          <input type="text" id="proxyEmpName" class="input-field" placeholder="例：王小明">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:bold;">工號 (選填)</label>
+          <input type="text" id="proxyEmpId" class="input-field" placeholder="例：EMP01">
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1.5fr; gap:8px;">
+        <div>
+          <label style="font-size:12px; font-weight:bold;">選擇店家</label>
+          <select id="proxyStoreSelect" class="input-field" onchange="renderProxyStoreItems()"></select>
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:bold;">選擇餐點 (點擊加入)</label>
+          <select id="proxyItemSelect" class="input-field"></select>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; margin-bottom:12px;" onclick="addProxyItemToList()">＋ 加入下方清單</button>
+      <div id="proxyCartList" style="background:#f8fafc; padding:10px; border-radius:10px; margin-bottom:12px; font-size:13px;">尚未選取餐點</div>
+      <button class="btn btn-green" style="width:100%; padding:12px;" onclick="submitProxyOrder()">✅ 確認代訂送出 (直接核准)</button>
+    </div>
+  </div>
+
+  <!-- 員工點餐 QR Code 彈窗 -->
+  <div id="qrShareModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:420px; text-align:center;">
+      <h3 style="margin-bottom:8px;">📱 員工手機團購點餐入口</h3>
+      <p style="font-size:12px; color:var(--sub); margin-bottom:12px;">請將此 QR Code 或網址貼至公司 LINE 群組供員工點餐</p>
+      <input type="text" id="empEntryUrlInput" class="input-field" style="font-size:12px; text-align:center;" oninput="renderEmpQrCode()">
+      <div id="empQrBox" style="display:flex; justify-content:center; margin:16px 0;"></div>
+      <div id="qrDynamicPinNotice" style="font-size:14px; font-weight:800; color:var(--purple); margin-bottom:14px;"></div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-gray" style="flex:1;" onclick="document.getElementById('qrShareModal').style.display='none'">關閉</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="copyLineAnnouncementText()">📋 複製 LINE 開團公告文字</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ================= 1. Firebase 初始化 (綁定 company-lunch-templete) =================
+    const firebaseConfig = {
+      apiKey: "AIzaSyATsboLh7eFb6FzSfMOO_Vkp7-da1Phgp8",
+      authDomain: "company-lunch-templete.firebaseapp.com",
+      projectId: "company-lunch-templete",
+      storageBucket: "company-lunch-templete.firebasestorage.app",
+      messagingSenderId: "150960345974",
+      appId: "1:150960345974:web:8c4043f84cbad4468f6057"
+    };
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.firestore();
+
+    // 全域狀態變數
+    let storesList = [];
+    let menuItemsList = [];
+    let allGroupOrders = [];
+    let currentSession = {
+      date_key: getTodayKey(),
+      title: "今日午餐團購",
+      open_store_ids: [],
+      deadline: "10:20",
+      dynamic_pin: "",
+      subsidy_limit: 0,
+      scheduled_start: "",
+      is_manually_closed: false
+    };
+    let companySettings = {
+      store_name: "企業員工團購訂餐中心",
+      store_notice: "請於截止時間前完成點餐，便當送達後請至領餐區領取。",
+      require_dept_approval: true
+    };
+    let departmentsList = [
+      { name: "資訊部", assistant: "王小明", pin: "it888" },
+      { name: "業務部", assistant: "李美華", pin: "sales666" },
+      { name: "行政管理部", assistant: "陳總務", pin: "adm777" },
+      { name: "生產製造部", assistant: "林組長", pin: "mfg555" }
+    ];
+    let hrMasterPin = "1111";
+
+    // 目前登入者角色 ('HR_MASTER' 或 部門名稱如 '資訊部')
+    let currentLoggedInRole = null;
+
+    // Super Admin 遠端授權與進階模組開關 (支援獨立與原 POS 相容)
+    let licenseFlags = {
+      license_active: true,
+      enable_pre_schedule: true,   // 預出單自動發布
+      enable_company_subsidy: true,// 公費補助計算
+      enable_payroll_csv: true,    // 月底薪資扣款 Excel 匯出
+      enable_dynamic_pin: true,    // 動態訂餐碼
+      activation_pin: "888888",
+      device_epoch: 1
+    };
+
+    let confirmCallback = null;
+    let proxyCart = [];
+
+    function getTodayKey() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function getMonthPrefix() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.innerText = msg;
+      t.style.display = "block";
+      setTimeout(() => { t.style.display = "none"; }, 2800);
+    }
+
+    function openConfirm(text, cb) {
+      document.getElementById("confirmText").innerText = text;
+      confirmCallback = cb;
+      document.getElementById("confirmModal").style.display = "flex";
+    }
+
+    window.closeConfirm = function(res) {
+      document.getElementById("confirmModal").style.display = "none";
+      if (confirmCallback) confirmCallback(res);
+    };
+
+    // ================= 2. 系統設定、授權鎖與角色登入監聽 =================
+    function initSystemListeners() {
+      // 1. 監聽人事總密碼
+      db.collection("system_settings").doc("admin").onSnapshot(doc => {
+        if (doc.exists) {
+          const d = doc.data();
+          if (d.force_reset_pin) {
+            hrMasterPin = "1111";
+            db.collection("system_settings").doc("admin").set({ pin: "1111", force_reset_pin: false }, { merge: true });
+            showToast("🔄 總部已將人事總密碼重置為 1111");
+          } else {
+            hrMasterPin = String(d.pin || "1111");
+          }
+        } else {
+          db.collection("system_settings").doc("admin").set({ pin: "1111", force_reset_pin: false }, { merge: true });
+        }
+      });
+
+      // 2. 監聽 Super Admin 授權與進階 Feature Flags
+      db.collection("system_settings").doc("license").onSnapshot(doc => {
+        if (doc.exists) {
+          const d = doc.data();
+          licenseFlags.license_active = d.license_active !== false;
+          // 向下相容：若開通 enable_pro_report 則開啟公費補助與預出單；若開通 enable_csv_clean 則開啟扣薪 Excel
+          licenseFlags.enable_pre_schedule = d.enable_pre_schedule !== undefined ? !!d.enable_pre_schedule : !!d.enable_pro_report;
+          licenseFlags.enable_company_subsidy = d.enable_company_subsidy !== undefined ? !!d.enable_company_subsidy : !!d.enable_pro_report;
+          licenseFlags.enable_payroll_csv = d.enable_payroll_csv !== undefined ? !!d.enable_payroll_csv : !!d.enable_csv_clean;
+          licenseFlags.enable_dynamic_pin = d.enable_dynamic_pin !== undefined ? !!d.enable_dynamic_pin : true;
+          licenseFlags.activation_pin = String(d.activation_pin || "888888");
+          licenseFlags.device_epoch = Number(d.device_epoch || 1);
+
+          const savedEpoch = Number(localStorage.getItem("group_device_bound_epoch") || 0);
+          document.getElementById("deviceActivationOverlay").style.display = (savedEpoch !== licenseFlags.device_epoch) ? "flex" : "none";
+
+          const lockOverlay = document.getElementById("licenseLockOverlay");
+          if (!licenseFlags.license_active) {
+            document.getElementById("licenseLockReasonText").innerText = d.suspend_reason || d.lock_reason || "本系統授權目前已暫停或到期，請聯繫系統服務商。";
+            lockOverlay.style.display = "flex";
+          } else {
+            lockOverlay.style.display = "none";
+          }
+          applyFeatureFlagsUI();
+        } else {
+          db.collection("system_settings").doc("license").set({
+            license_active: true,
+            enable_printer: true,
+            enable_pro_report: true,
+            enable_csv_clean: true,
+            enable_pre_schedule: true,
+            enable_company_subsidy: true,
+            enable_payroll_csv: true,
+            enable_dynamic_pin: true,
+            activation_pin: "888888",
+            device_epoch: 1
+          });
+        }
+      });
+
+      // 3. 監聽企業基本設定 (相容 Super Admin 讀取 store_info)
+      db.collection("system_settings").doc("store_info").onSnapshot(doc => {
+        if (doc.exists) {
+          companySettings = { ...companySettings, ...doc.data() };
+          document.getElementById("navCompanyName").innerText = companySettings.store_name || "企業員工團購訂餐系統";
+          document.getElementById("loginCompanyTitle").innerText = `${companySettings.store_name || '企業團購'} 管理後台`;
+          document.getElementById("setCompanyName").value = companySettings.store_name || "";
+          document.getElementById("setCompanyNotice").value = companySettings.store_notice || "";
+          document.getElementById("setRequireDeptApproval").checked = companySettings.require_dept_approval !== false;
+        } else {
+          db.collection("system_settings").doc("store_info").set({
+            store_name: "企業員工團購訂餐中心",
+            store_phone: "人事總務部",
+            store_address: "企業內部團購系統",
+            store_notice: "每日 10:20 準時截止點餐，便當送達後請各部門領取。",
+            require_dept_approval: true
+          });
+        }
+      });
+
+      // 4. 監聽部門與助理密碼設定
+      db.collection("system_settings").doc("departments_config").onSnapshot(doc => {
+        if (doc.exists && Array.isArray(doc.data().departments)) {
+          departmentsList = doc.data().departments;
+        } else {
+          db.collection("system_settings").doc("departments_config").set({ departments: departmentsList });
+        }
+        renderLoginRoleOptions();
+        renderDepartmentsConfigUI();
+      });
+
+      // 5. 監聽今日開團設定
+      db.collection("group_sessions").doc("current").onSnapshot(doc => {
+        if (doc.exists) {
+          currentSession = { ...currentSession, ...doc.data() };
+          populateSessionForm();
+        }
+      });
+    }
+
+    function applyFeatureFlagsUI() {
+      document.getElementById("preScheduleSettingBox").style.display = licenseFlags.enable_pre_schedule ? "block" : "none";
+      document.getElementById("subsidySettingBox").style.display = licenseFlags.enable_company_subsidy ? "block" : "none";
+      document.getElementById("btnExportPayrollCsv").style.display = licenseFlags.enable_payroll_csv ? "inline-flex" : "none";
+      document.getElementById("dynamicPinSettingBox").style.display = licenseFlags.enable_dynamic_pin ? "block" : "none";
+      renderDualReports();
+    }
+
+    window.verifyDeviceActivation = function() {
+      const input = document.getElementById("deviceActivationInput").value.trim();
+      if (input === licenseFlags.activation_pin) {
+        localStorage.setItem("group_device_bound_epoch", String(licenseFlags.device_epoch));
+        document.getElementById("deviceActivationOverlay").style.display = "none";
+        showToast("✅ 設備已成功永久綁定！");
+      } else {
+        showToast("❌ 啟用授權碼錯誤 (預設 888888)");
+      }
+    };
+
+    function renderLoginRoleOptions() {
+      const sel = document.getElementById("loginRoleSelect");
+      const filterSel = document.getElementById("approvalDeptFilter");
+      const proxyDept = document.getElementById("proxyDeptSelect");
+
+      sel.innerHTML = `<option value="HR_MASTER">👑 人事/總務統籌窗口 (全公司最高權限)</option>` +
+        departmentsList.map(d => `<option value="${d.name}">👤 【${d.name}】部門審核助理 (${d.assistant || '助理'})</option>`).join('');
+
+      filterSel.innerHTML = `<option value="ALL">🏢 顯示全公司所有部門</option>` +
+        departmentsList.map(d => `<option value="${d.name}">📍 ${d.name}</option>`).join('');
+
+      if (proxyDept) {
+        proxyDept.innerHTML = departmentsList.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+      }
+    }
+
+    window.verifyRoleLogin = function() {
+      const role = document.getElementById("loginRoleSelect").value;
+      const pin = document.getElementById("pinInput").value.trim();
+
+      if (role === "HR_MASTER") {
+        if (pin !== hrMasterPin) return showToast("❌ 人事總務密碼錯誤！(預設 1111)");
+        currentLoggedInRole = "HR_MASTER";
+        document.getElementById("currentRoleBadge").innerText = "👑 人事/總務統籌 (全公司)";
+        document.getElementById("currentRoleBadge").style.background = "#2563eb";
+      } else {
+        const deptObj = departmentsList.find(d => d.name === role);
+        if (!deptObj || (pin !== String(deptObj.pin) && pin !== hrMasterPin)) {
+          return showToast(`❌ 【${role}】助理密碼錯誤！`);
+        }
+        currentLoggedInRole = role;
+        document.getElementById("currentRoleBadge").innerText = `👤 ${role} 審核助理`;
+        document.getElementById("currentRoleBadge").style.background = "#059669";
+      }
+
+      document.getElementById("pinInput").value = "";
+      document.getElementById("loginOverlay").style.display = "none";
+
+      applyRoleAccessControl();
+      startListeningStoresAndOrders();
+    };
+
+    document.getElementById("pinInput").addEventListener("keypress", e => {
+      if (e.key === "Enter") verifyRoleLogin();
+    });
+
+    window.logoutAdmin = function() {
+      currentLoggedInRole = null;
+      document.getElementById("loginOverlay").style.display = "flex";
+    };
+
+    // 依據「人事總務」或「部門助理」自動切換可看見的分頁與部門過濾器
+    function applyRoleAccessControl() {
+      const isHR = currentLoggedInRole === "HR_MASTER";
+      document.getElementById("tabBtn_session").style.display = isHR ? "flex" : "none";
+      document.getElementById("tabBtn_DualReport").style.display = isHR ? "flex" : "none";
+      document.getElementById("tabBtn_stores").style.display = isHR ? "flex" : "none";
+      document.getElementById("tabBtn_settings").style.display = isHR ? "flex" : "none";
+
+      const deptFilter = document.getElementById("approvalDeptFilter");
+      if (!isHR) {
+        // 部門助理登入：強制鎖定只能看自己部門，並直接跳到審核頁
+        deptFilter.value = currentLoggedInRole;
+        deptFilter.disabled = true;
+        document.getElementById("approvalHeaderTitle").innerText = `✅ 【${currentLoggedInRole}】員工點餐審核與管理`;
+        switchTab("approval");
+      } else {
+        deptFilter.value = "ALL";
+        deptFilter.disabled = false;
+        document.getElementById("approvalHeaderTitle").innerText = `✅ 全公司各部門點餐審核與即時清單`;
+        switchTab("session");
+      }
+    }
+
+    window.switchTab = function(tabName) {
+      ["session", "approval", "DualReport", "stores", "settings"].forEach(t => {
+        document.getElementById("tab_" + t).style.display = (t === tabName) ? "block" : "none";
+        document.getElementById("tabBtn_" + t).classList.toggle("active", t === tabName);
+      });
+      if (tabName === "DualReport") renderDualReports();
+    };
+
+    // ================= 3. 監聽店家庫、菜單與團購訂單 =================
+    let dataListenersStarted = false;
+    function startListeningStoresAndOrders() {
+      if (dataListenersStarted) {
+        renderApprovalOrders();
+        renderDualReports();
+        return;
+      }
+      dataListenersStarted = true;
+
+      db.collection("stores").orderBy("sort_order").onSnapshot(snap => {
+        storesList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        document.getElementById("totalStoresBadge").innerText = storesList.length;
+        renderSessionStorePicker();
+        populateManageStoreSelect();
+      });
+
+      db.collection("menu_items").onSnapshot(snap => {
+        menuItemsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderStoreMenuEditor();
+      });
+
+      db.collection("group_orders").orderBy("created_at", "desc").limit(800).onSnapshot(snap => {
+        allGroupOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderApprovalOrders();
+        renderDualReports();
+      });
+    }
+
+    // ================= 4. 今日開團與預出單控制 =================
+    function populateSessionForm() {
+      document.getElementById("sessTitleInput").value = currentSession.title || `${getTodayKey()} 午餐團購`;
+      document.getElementById("sessDeadlineInput").value = currentSession.deadline || "10:20";
+      document.getElementById("sessDynamicPinInput").value = currentSession.dynamic_pin || "";
+      document.getElementById("sessSubsidyInput").value = currentSession.subsidy_limit || 0;
+      document.getElementById("sessStartTimeInput").value = currentSession.scheduled_start || "";
+
+      const badge = document.getElementById("sessionStatusBadge");
+      if (currentSession.is_manually_closed) {
+        badge.innerText = "🛑 已強制截單鎖定";
+        badge.className = "badge badge-unpaid";
+      } else {
+        badge.innerText = `🟢 開團中 (已選 ${(currentSession.open_store_ids \vert{}\vert{} []).length} 家店｜${currentSession.deadline || '10:20'} 截止)`;
+        badge.className = "badge badge-ok";
+      }
+      renderSessionStorePicker();
+    }
+
+    function renderSessionStorePicker() {
+      const grid = document.getElementById("sessionStorePickGrid");
+      if (!grid) return;
+      if (!storesList.length) {
+        grid.innerHTML = `<div style="grid-column:1/-1; background:#fffbeb; border:1px solid #fde68a; padding:16px; border-radius:12px; color:#b45309; font-weight:bold;">
+          💡 目前店家庫還是空的！請點擊上方「🍱 店家與菜單庫」分頁，按「📥 一鍵載入 11 家真實名店完整菜單庫」即可秒速建置！
+        </div>`;
+        return;
+      }
+
+      const openIds = currentSession.open_store_ids || [];
+      grid.innerHTML = storesList.map(st => {
+        const isChecked = openIds.includes(st.id);
+        return `
+          <label class="store-check-card ${isChecked ? 'checked' : ''}" onclick="toggleStoreInSession('${st.id}', event)">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} style="width:20px; height:20px; margin-top:2px; pointer-events:none;">
+            <div>
+              <div style="font-weight:800; font-size:15px; color:#0f172a;">${st.name}</div>
+              <div style="font-size:12px; color:var(--sub); margin-top:2px;">📞 ${st.phone || '未填電話'}</div>
+              ${st.note ? `<div style="font-size:11px; color:#b45309; margin-top:2px;">${st.note}</div>` : ''}
+            </div>
+          </label>
+        `;
+      }).join('');
+    }
+
+    window.toggleStoreInSession = function(storeId, ev) {
+      ev.preventDefault();
+      const list = [...(currentSession.open_store_ids || [])];
+      const idx = list.indexOf(storeId);
+      if (idx >= 0) list.splice(idx, 1);
+      else list.push(storeId);
+      currentSession.open_store_ids = list;
+      renderSessionStorePicker();
+    };
+
+    window.quickSelectStores = function(indices) {
+      currentSession.open_store_ids = indices.map(i => storesList[i]?.id).filter(Boolean);
+      renderSessionStorePicker();
+    };
+
+    window.clearSelectedStores = function() {
+      currentSession.open_store_ids = [];
+      renderSessionStorePicker();
+    };
+
+    window.generateRandomDynamicPin = function() {
+      const code = String(Math.floor(100 + Math.random() * 900));
+      document.getElementById("sessDynamicPinInput").value = code;
+    };
+
+    window.publishGroupSession = async function(isOpen) {
+      if (isOpen && (!currentSession.open_store_ids || currentSession.open_store_ids.length === 0)) {
+        return showToast("⚠️ 請至少勾選 1 家今日要開放給員工點餐的店家！");
+      }
+      const payload = {
+        date_key: getTodayKey(),
+        title: document.getElementById("sessTitleInput").value.trim() || `${getTodayKey()} 團購訂餐`,
+        deadline: document.getElementById("sessDeadlineInput").value || "10:20",
+        dynamic_pin: document.getElementById("sessDynamicPinInput").value.trim(),
+        subsidy_limit: Number(document.getElementById("sessSubsidyInput").value || 0),
+        scheduled_start: document.getElementById("sessStartTimeInput").value || "",
+        open_store_ids: currentSession.open_store_ids || [],
+        is_manually_closed: !isOpen,
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      await db.collection("group_sessions").doc("current").set(payload, { merge: true });
+      showToast(isOpen ? "🚀 今日開團設定已發布！員工端已同步更新菜單" : "🛑 已強制截單鎖定，員工端已停止收單！");
+    };
+
+    window.extendSessionDeadline = async function(addMins) {
+      const cur = document.getElementById("sessDeadlineInput").value || "10:20";
+      const [hh, mm] = cur.split(":").map(Number);
+      const d = new Date();
+      d.setHours(hh, mm + addMins, 0);
+      const nextTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      document.getElementById("sessDeadlineInput").value = nextTime;
+      await publishGroupSession(true);
+      showToast(`⏱️ 已延長結單時間至 ${nextTime} 並重新開放點餐！`);
+    };
+
+    // ================= 5. 部門訂單審核與管理 =================
+    function renderApprovalOrders() {
+      const grid = document.getElementById("approvalOrdersGrid");
+      const countBadge = document.getElementById("pendingApproveCount");
+      if (!grid) return;
+
+      const todayKey = getTodayKey();
+      const deptFilter = currentLoggedInRole === "HR_MASTER"
+        ? document.getElementById("approvalDeptFilter").value
+        : currentLoggedInRole;
+
+      // 統計今日待審核單數
+      const allTodayOrders = allGroupOrders.filter(o => o.session_date === todayKey && o.status !== "cancelled");
+      const filteredOrders = allTodayOrders.filter(o => deptFilter === "ALL" || o.department === deptFilter);
+
+      const pendingCount = filteredOrders.filter(o => o.status === "pending_approval").length;
+      if (countBadge) countBadge.innerText = pendingCount;
+
+      if (!filteredOrders.length) {
+        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:32px; color:var(--sub);">目前此部門尚無今日點餐紀錄</div>`;
+        return;
+      }
+
+      grid.innerHTML = filteredOrders.map(ord => {
+        const isApproved = ord.status === "approved";
+        const statusBadge = isApproved
+          ? `<span class="badge badge-ok">✅ 已核准送出</span>`
+          : `<span class="badge badge-wait">⏳ 待助理審核</span>`;
+
+        const itemsHtml = (ord.items || []).map(it => `
+          <div style="display:flex; justify-content:space-between; font-size:14px; padding:4px 0; border-bottom:1px dashed #f1f5f9;">
+            <span><strong>[${it.store_name}]</strong> ${it.name}${it.spec ? `<small style="color:var(--sub);">(${it.spec})</small>` : ''} x${it.qty}</span> <strong>$${it.subtotal}</strong>
+          </div>
+        `).join('');
+
+        return `
+          <div class="order-card ${isApproved ? 'approved' : ''}">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <span style="background:#0f172a; color:#fff; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:bold;">${ord.department}</span>
+                  <strong style="font-size:16px; margin-left:6px;">${ord.employee_name}</strong>${ord.employee_id ? `<small style="color:var(--sub);">(${ord.employee_id})</small>` : ''}
+                </div>
+                ${statusBadge}
+              </div>
+              <div style="margin:10px 0;">${itemsHtml}</div>${ord.note ? `<div style="font-size:12px; color:#b45309; background:#fffbeb; padding:6px 8px; border-radius:6px; margin-bottom:8px;">備註：${ord.note}</div>` : ''}
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12px; color:var(--sub);">點餐金額</span>
+                <strong style="font-size:18px; color:var(--primary);">$${ord.total_amount}</strong>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+              ${!isApproved ? `<button class="btn btn-green" style="flex:2;" onclick="approveSingleOrder('${ord.id}')">✅ 核准送出</button>` : `<button class="btn btn-gray" style="flex:1;" onclick="unapproveSingleOrder('${ord.id}')">↩️ 退回待審</button>`}
+              <button class="btn btn-danger-outline" onclick="cancelGroupOrder('${ord.id}')">🗑️ 退單/作廢</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.approveSingleOrder = async function(ordId) {
+      await db.collection("group_orders").doc(ordId).update({
+        status: "approved",
+        approved_by: currentLoggedInRole || "ADMIN"
+      });
+      showToast("✅ 已核准該筆訂單！");
+    };
+
+    window.unapproveSingleOrder = async function(ordId) {
+      await db.collection("group_orders").doc(ordId).update({ status: "pending_approval" });
+      showToast("↩️ 已退回待審核狀態，員工可重新修改");
+    };
+
+    window.cancelGroupOrder = function(ordId) {
+      openConfirm("確定要將此筆員工訂單退單作廢嗎？", async (yes) => {
+        if (!yes) return;
+        await db.collection("group_orders").doc(ordId).update({ status: "cancelled" });
+        showToast("🗑️ 訂單已作廢");
+      });
+    };
+
+    window.batchApproveVisibleOrders = async function() {
+      const todayKey = getTodayKey();
+      const deptFilter = currentLoggedInRole === "HR_MASTER"
+        ? document.getElementById("approvalDeptFilter").value
+        : currentLoggedInRole;
+
+      const targets = allGroupOrders.filter(o =>
+        o.session_date === todayKey &&
+        o.status === "pending_approval" &&
+        (deptFilter === "ALL" || o.department === deptFilter)
+      );
+      if (!targets.length) return showToast("✨ 目前沒有待審核的訂單！");
+
+      const batch = db.batch();
+      targets.forEach(o => {
+        batch.update(db.collection("group_orders").doc(o.id), {
+          status: "approved",
+          approved_by: currentLoggedInRole || "ADMIN"
+        });
+      });
+      await batch.commit();
+      showToast(`🎉 已一鍵核准 ${targets.length} 筆部門訂單！`);
+    };
+
+    // ================= 6. 人事神級「雙視角整合報表」 =================
+    let currentReportSubView = "store";
+    window.switchReportSubView = function(view) {
+      currentReportSubView = view;
+      document.getElementById("viewBtn_store").className = (view === "store") ? "btn btn-primary" : "btn btn-gray";
+      document.getElementById("viewBtn_employee").className = (view === "employee") ? "btn btn-primary" : "btn btn-gray";
+      document.getElementById("subView_storeCall").style.display = (view === "store") ? "block" : "none";
+      document.getElementById("subView_empCollect").style.display = (view === "employee") ? "block" : "none";
+      renderDualReports();
+    };
+
+    function getFilteredApprovedOrders() {
+      const period = document.getElementById("reportPeriodSelect")?.value || "today";
+      const todayKey = getTodayKey();
+      const monthPrefix = getMonthPrefix();
+
+      return allGroupOrders.filter(o => {
+        if (o.status !== "approved") return false;
+        if (period === "today") return o.session_date === todayKey;
+        if (period === "month") return String(o.session_date || "").startsWith(monthPrefix);
+        return true;
+      });
+    }
+
+    function renderDualReports() {
+      const validOrders = getFilteredApprovedOrders();
+      renderStoreCallView(validOrders);
+      renderEmployeeCollectView(validOrders);
+    }
+
+    // 視角 ①：依店家彙整品項數量 + 一鍵複製 LINE 叫餐文字
+    function renderStoreCallView(orders) {
+      const container = document.getElementById("subView_storeCall");
+      if (!container) return;
+
+      const storeGroups = {};
+      orders.forEach(ord => {
+        (ord.items || []).forEach(it => {
+          const sName = it.store_name || "未分類店家";
+          if (!storeGroups[sName]) {
+            const stObj = storesList.find(s => s.name === sName) || {};
+            storeGroups[sName] = {
+              phone: stObj.phone || "",
+              note: stObj.note || "",
+              totalQty: 0,
+              totalAmount: 0,
+              itemsMap: {}
+            };
+          }
+          const key = `${it.name}${it.spec ? ` (${it.spec})` : ''}`;
+          if (!storeGroups[sName].itemsMap[key]) {
+            storeGroups[sName].itemsMap[key] = { qty: 0, subtotal: 0, unitPrice: it.unit_price, buyers: [] };
+          }
+          storeGroups[sName].itemsMap[key].qty += Number(it.qty || 1);
+          storeGroups[sName].itemsMap[key].subtotal += Number(it.subtotal || 0);
+          storeGroups[sName].itemsMap[key].buyers.push(`${ord.department}-${ord.employee_name}`);
+          storeGroups[sName].totalQty += Number(it.qty || 1);
+          storeGroups[sName].totalAmount += Number(it.subtotal || 0);
+        });
+      });
+
+      const storeNames = Object.keys(storeGroups);
+      if (!storeNames.length) {
+        container.innerHTML = `<div class="card" style="text-align:center; color:var(--sub);">所選期間內尚無「已核准」之訂單資料（請先至審核頁核准訂單）</div>`;
+        return;
+      }
+
+      container.innerHTML = storeNames.map(sName => {
+        const g = storeGroups[sName];
+        const rowsHtml = Object.entries(g.itemsMap).map(([itemSpecName, info]) => `
+          <tr>
+            <td style="font-weight:800; font-size:15px;">${itemSpecName}</td>
+            <td style="font-weight:900; color:var(--primary); font-size:16px;">x ${info.qty}</td> <td style="font-weight:700;">$${info.subtotal}</td>
+            <td style="font-size:12px; color:var(--sub);">${info.buyers.join("、")}</td>
+          </tr>
+        `).join('');
+
+        return `
+          <div class="card">
+            <h3>
+              <div>
+                <span style="font-size:19px;">🏪 ${sName}</span>${g.phone ? `<a href="tel:${g.phone}" class="btn btn-gray" style="margin-left:8px; padding:4px 10px; font-size:12px; text-decoration:none;">📞 直撥電話：${g.phone}</a>` : ''}
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:15px;">總數：<strong style="color:var(--primary);">${g.totalQty} 份</strong> ｜ 應付店家總額：<strong style="color:var(--green); font-size:19px;">$${g.totalAmount}</strong></span>
+                <button class="btn btn-green" onclick="copyStoreOrderLineText('${sName}')">📋 一鍵複製 LINE 叫餐單文字</button>
+              </div>
+            </h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>餐點名稱與客製規格</th>
+                  <th>總數量</th>
+                  <th>小計金額</th>
+                  <th>點餐員工明細 (發放對照)</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.copyStoreOrderLineText = function(storeName) {
+      const orders = getFilteredApprovedOrders();
+      const itemsMap = {};
+      let totalQty = 0;
+      let totalAmt = 0;
+
+      orders.forEach(o => {
+        (o.items || []).forEach(it => {
+          if ((it.store_name || "未分類店家") !== storeName) return;
+          const key = `${it.name}${it.spec ? `(${it.spec})` : ''}`;
+          itemsMap[key] = (itemsMap[key] || 0) + Number(it.qty || 1);
+          totalQty += Number(it.qty || 1);
+          totalAmt += Number(it.subtotal || 0);
+        });
+      });
+
+      const lines = [
+        `【${companySettings.store_name || '公司團購'} 訂購單】`,
+        `🏪 店家：${storeName}`,
+        `📅 日期：${getTodayKey()}`,
+        `------------------------`,
+        ...Object.entries(itemsMap).map(([k, q]) => `• ${k}  x${q}`),
+        `------------------------`,
+        `📦 總數量：共 ${totalQty} 份`,
+        `💰 總金額：$${totalAmt} 元`,
+        `麻煩老闆幫我們準備，謝謝您！`
+      ];
+
+      navigator.clipboard.writeText(lines.join("\n")).then(() => {
+        showToast(`📋 已複製【${storeName}】LINE 訂購單文字，可直接貼給店家！`);
+      });
+    };
+
+    // 視角 ②：依部門/員工排列 領餐與收款/公費補助/薪資扣款表
+    function renderEmployeeCollectView(orders) {
+      const container = document.getElementById("subView_empCollect");
+      if (!container) return;
+
+      if (!orders.length) {
+        container.innerHTML = `<div class="card" style="text-align:center; color:var(--sub);">所選期間內尚無已核准之員工訂單</div>`;
+        return;
+      }
+
+      const subsidyLimit = licenseFlags.enable_company_subsidy ? Number(currentSession.subsidy_limit || 0) : 0;
+
+      const sorted = [...orders].sort((a, b) => {
+        const dCmp = String(a.department || "").localeCompare(String(b.department || ""));
+        if (dCmp !== 0) return dCmp;
+        return String(a.employee_name || "").localeCompare(String(b.employee_name || ""));
+      });
+
+      const rowsHtml = sorted.map(ord => {
+        const itemsText = (ord.items || []).map(it => `[${it.store_name}]${it.name}${it.spec ? '('+it.spec+')' : ''}x${it.qty}`).join(" ＋ ");
+        const rawTotal = Number(ord.total_amount || 0);
+        const subsidyUsed = Math.min(rawTotal, subsidyLimit);
+        const selfPay = Math.max(0, rawTotal - subsidyUsed);
+
+        return `
+          <tr style="background:${ord.is_paid && ord.is_collected ? '#f0fdf4' : '#fff'};">
+            <td><strong>${ord.session_date || ''}</strong></td>
+            <td><span class="badge" style="background:#e2e8f0; color:#1e293b;">${ord.department}</span></td>
+            <td style="font-weight:800;">${ord.employee_name}${ord.employee_id ? `<small style="color:var(--sub);">(${ord.employee_id})</small>` : ''}</td>
+            <td>${itemsText}</td> <td style="font-weight:bold;">$${rawTotal}</td>${licenseFlags.enable_company_subsidy ? `<td style="color:var(--green); font-weight:bold;">-$${subsidyUsed}</td>` : ''}
+            <td style="font-weight:900; color:var(--primary); font-size:16px;">$${selfPay}</td>
+            <td>
+              <button class="btn ${ord.is_paid ? 'btn-green' : 'btn-danger-outline'}" style="padding:5px 10px; font-size:12px;" onclick="toggleOrderPaid('${ord.id}',${!ord.is_paid})">
+                ${ord.is_paid ? '💰 已收錢/已扣薪' : '⏳ 未繳費'}
+              </button>
+            </td>
+            <td>
+              <button class="btn ${ord.is_collected ? 'btn-primary' : 'btn-gray'}" style="padding:5px 10px; font-size:12px;" onclick="toggleOrderCollected('${ord.id}',${!ord.is_collected})">
+                ${ord.is_collected ? '🍱 已領餐' : '未領取'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="card">
+          <h3>
+            <span>🍱 員工領餐發放 ＆ 收錢/扣薪核對表 (共 ${sorted.length} 筆)</span>
+            <button class="btn btn-green" onclick="markAllVisiblePaid()">⚡ 一鍵全標記為「已收錢/轉月結扣薪」</button>
+          </h3>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>部門</th>
+                  <th>員工姓名(工號)</th>
+                  <th>訂購餐點明細</th>
+                  <th>餐點總額</th>
+                  ${licenseFlags.enable_company_subsidy ? '<th>公司補助</th>' : ''}
+                  <th>員工應自付</th>
+                  <th>收款/扣薪狀態</th>
+                  <th>便當領取狀態</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    window.toggleOrderPaid = async function(ordId, nextPaid) {
+      await db.collection("group_orders").doc(ordId).update({ is_paid: nextPaid });
+    };
+
+    window.toggleOrderCollected = async function(ordId, nextCol) {
+      await db.collection("group_orders").doc(ordId).update({ is_collected: nextCol });
+    };
+
+    window.markAllVisiblePaid = async function() {
+      const orders = getFilteredApprovedOrders().filter(o => !o.is_paid);
+      if (!orders.length) return showToast("所有訂單皆已標記收款！");
+      const batch = db.batch();
+      orders.forEach(o => batch.update(db.collection("group_orders").doc(o.id), { is_paid: true }));
+      await batch.commit();
+      showToast(`💰 已將 ${orders.length} 筆訂單全數標記為已收款/轉月結！`);
+    };
+
+    // 進階功能：匯出月底會計薪資扣款 Excel (CSV)
+    window.exportPayrollCSV = function() {
+      const orders = getFilteredApprovedOrders();
+      if (!orders.length) return showToast("無已核准訂單可匯出");
+      const subsidyLimit = licenseFlags.enable_company_subsidy ? Number(currentSession.subsidy_limit || 0) : 0;
+
+      let csv = "\uFEFF訂餐日期,部門,員工工號,員工姓名,訂購店家與明細,餐點總額,公司公費補助,員工應扣薪/自付額,繳費狀態\n";
+      orders.forEach(o => {
+        const rawTotal = Number(o.total_amount || 0);
+        const sub = Math.min(rawTotal, subsidyLimit);
+        const selfPay = Math.max(0, rawTotal - sub);
+        const itemsStr = (o.items || []).map(i => `[${i.store_name}]${i.name}${i.spec ? '('+i.spec+')' : ''}x${i.qty}`).join(" / ");
+        const row = [
+          `"${o.session_date || ''}"`,
+          `"${o.department || ''}"`,
+          `"${o.employee_id || ''}"`,
+          `"${o.employee_name || ''}"`,
+          `"${itemsStr}"`,
+          rawTotal,
+          sub,
+          selfPay,
+          `"${o.is_paid ? '已結清/已扣薪' : '待扣薪/未繳'}"`
+        ];
+        csv += row.join(",") + "\n";
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `企業團購訂餐與薪資扣款明細表_${getTodayKey()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast("📥 會計薪資扣款 Excel (CSV) 已成功匯出！");
+    };
+
+    // ================= 7. 內建 11 家真實合作店家菜單庫一鍵載入 =================
+    function get11RealStoresDataset() {
+      return [
+        {
+          name: "阿正現炒",
+          phone: "06-2707718",
+          note: "仁德區仁義一街100號｜外送請於10點前預訂｜週六公休 (115/09最新菜單)",
+          sort_order: 1,
+          items: [
+            { cat: "飯粥類", name: "鮮魚粥", price: 110 },
+            { cat: "飯粥類", name: "魚肚粥", price: 140 },
+            { cat: "飯粥類", name: "海產粥", price: 90 },
+            { cat: "飯粥類", name: "蚵仔粥", price: 90 },
+            { cat: "飯粥類", name: "魚皮粥", price: 80 },
+            { cat: "飯粥類", name: "紅燒牛腩燴飯", price: 110 },
+            { cat: "飯粥類", name: "羊肉炒飯", price: 80 },
+            { cat: "飯粥類", name: "雞柳炒飯", price: 80 },
+            { cat: "飯粥類", name: "牛肉炒飯", price: 80 },
+            { cat: "飯粥類", name: "蝦仁炒飯", price: 70 },
+            { cat: "飯粥類", name: "肉絲火腿炒飯", price: 70 },
+            { cat: "飯粥類", name: "牛肉蓋飯", price: 70 },
+            { cat: "飯粥類", name: "豬肉蓋飯", price: 70 },
+            { cat: "飯粥類", name: "牛柳飯", price: 90, addons: [{name:"芥藍",price:0},{name:"蔥爆",price:0}] },
+            { cat: "飯粥類", name: "雞柳飯", price: 90, addons: [{name:"芥藍",price:0},{name:"蔥爆",price:0}] },
+            { cat: "飯粥類", name: "羊柳飯", price: 90, addons: [{name:"芥藍",price:0},{name:"蔥爆",price:0}] },
+            { cat: "飯粥類", name: "豬柳飯", price: 90, addons: [{name:"芥藍",price:0},{name:"蔥爆",price:0}] },
+            { cat: "飯粥類", name: "三杯雞柳飯", price: 100 },
+            { cat: "飯粥類", name: "白飯(一碗)", price: 10 },
+            { cat: "麵類", name: "鮮魚冬粉/麵線", price: 110, addons: [{name:"冬粉",price:0},{name:"麵線",price:0}] },
+            { cat: "麵類", name: "魚肚冬粉/麵線", price: 140, addons: [{name:"冬粉",price:0},{name:"麵線",price:0}] },
+            { cat: "麵類", name: "豬心冬粉/麵線", price: 80, addons: [{name:"冬粉",price:0},{name:"麵線",price:0}] },
+            { cat: "麵類", name: "蚵仔麵線", price: 90 },
+            { cat: "麵類", name: "魚皮麵線", price: 80 },
+            { cat: "麵類", name: "豬肝麵線", price: 80 },
+            { cat: "麵類", name: "紅燒牛肉麵/冬粉", price: 110, addons: [{name:"麵",price:0},{name:"冬粉",price:0}] },
+            { cat: "麵類", name: "什錦海鮮湯麵/冬粉", price: 90, addons: [{name:"湯麵",price:0},{name:"冬粉",price:0}] },
+            { cat: "麵類", name: "牛肉炒麵", price: 70 },
+            { cat: "麵類", name: "羊肉炒麵", price: 80 },
+            { cat: "麵類", name: "雞肉炒麵", price: 70 },
+            { cat: "麵類", name: "蝦仁炒麵", price: 70 },
+            { cat: "麵類", name: "豬肉炒麵", price: 70 },
+            { cat: "湯類", name: "鮮魚湯", price: 100 },
+            { cat: "湯類", name: "魚肚湯", price: 130 },
+            { cat: "湯類", name: "什錦海鮮湯", price: 80 },
+            { cat: "湯類", name: "紅燒牛腩湯", price: 90 },
+            { cat: "湯類", name: "豬心湯", price: 50 },
+            { cat: "湯類", name: "蚵仔湯", price: 60 },
+            { cat: "湯類", name: "魚皮湯", price: 50 },
+            { cat: "湯類", name: "蛤仔湯", price: 40 },
+            { cat: "湯類", name: "蛋花湯", price: 30 },
+            { cat: "湯類", name: "豬肝湯", price: 50 },
+            { cat: "小炒類", name: "各式炒青菜", price: 60 },
+            { cat: "小炒類", name: "炒麻油豬心", price: 130 },
+            { cat: "小炒類", name: "炒牛肉", price: 150, addons: [{name:"芥藍",price:0},{name:"蔥爆",price:0}] },
+            { cat: "小炒類", name: "炒雞柳", price: 130, addons: [{name:"芥藍",price:0},{name:"蔥爆",price:0}] },
+            { cat: "小炒類", name: "炒羊肉", price: 150, addons: [{name:"芥藍",price:0},{name:"蔥爆",price:0}] },
+            { cat: "小炒類", name: "炒肉絲", price: 130, addons: [{name:"芥藍",price:0},{name:"蔥爆",price:0}] },
+            { cat: "小炒類", name: "青椒炒牛肉", price: 170 },
+            { cat: "小炒類", name: "青椒炒羊肉", price: 170 },
+            { cat: "小炒類", name: "青椒炒雞肉", price: 150 },
+            { cat: "小炒類", name: "麻油炒豬肝", price: 130 },
+            { cat: "小炒類", name: "三杯雞柳", price: 150 },
+            { cat: "小炒類", name: "炒花枝", price: 170 },
+            { cat: "小炒類", name: "炒蔭絲蚵", price: 150 },
+            { cat: "小炒類", name: "炒蛤", price: 130 },
+            { cat: "小炒類", name: "炒魚皮", price: 130 },
+            { cat: "小炒類", name: "糖醋里肌肉", price: 130 },
+            { cat: "小炒類", name: "椒鹽里肌肉", price: 130 },
+            { cat: "小炒類", name: "煎魚肚", price: 130 },
+            { cat: "小炒類", name: "煎蝦仁蛋", price: 60 },
+            { cat: "小炒類", name: "煎蔥蛋", price: 40 },
+            { cat: "小炒類", name: "炒洋蔥蛋", price: 60 }
+          ]
+        },
+        {
+          name: "正樽當歸鴨",
+          phone: "06-2052497",
+          note: "永康區大仁街24號｜10:00~13:30 / 16:00~20:00 (附蛋餐點不要蛋可換配菜)",
+          sort_order: 2,
+          items: [
+            { cat: "飯類", name: "鴨肉飯(大-附蛋)", price: 80, addons: [{name:"不要蛋換配菜",price:0}] },
+            { cat: "飯類", name: "鴨肉飯(小)", price: 50 },
+            { cat: "飯類", name: "鴨腿飯(附蛋)", price: 105, addons: [{name:"不要蛋換配菜",price:0}] },
+            { cat: "飯類", name: "雞腿飯(附蛋)", price: 100, addons: [{name:"不要蛋換配菜",price:0}] },
+            { cat: "飯類", name: "雞肉飯", price: 50 },
+            { cat: "飯類", name: "肉燥飯", price: 40 },
+            { cat: "便當類", name: "鴨肉飯便當", price: 95 },
+            { cat: "便當類", name: "鴨腿飯便當", price: 120 },
+            { cat: "便當類", name: "雞腿飯便當", price: 115 },
+            { cat: "便當類", name: "雞肉飯便當", price: 90 },
+            { cat: "便當類", name: "肉燥飯便當", price: 85 },
+            { cat: "乾拌與切盤", name: "鴨肉切盤(小)", price: 140 },
+            { cat: "乾拌與切盤", name: "鴨肉切盤(大)", price: 190 },
+            { cat: "乾拌與切盤", name: "鴨腿切盤", price: 105 },
+            { cat: "乾拌與切盤", name: "雞腿切盤", price: 90 },
+            { cat: "乾拌與切盤", name: "鴨肉拌米粉", price: 80 },
+            { cat: "乾拌與切盤", name: "鴨肉拌冬粉", price: 80 },
+            { cat: "乾拌與切盤", name: "鴨肉拌麵", price: 80 },
+            { cat: "乾拌與切盤", name: "拌冬粉", price: 50 },
+            { cat: "乾拌與切盤", name: "拌麵", price: 50 },
+            { cat: "乾拌與切盤", name: "拌米粉", price: 50 },
+            { cat: "乾拌與切盤", name: "米血切盤(加薑絲)", price: 40 },
+            { cat: "乾拌與切盤", name: "韭菜拌米血", price: 60 },
+            { cat: "乾拌與切盤", name: "韭菜拌鴨腱", price: 70 },
+            { cat: "乾拌與切盤", name: "韭菜拌鴨心", price: 75 },
+            { cat: "乾拌與切盤", name: "韭菜拌豬肝", price: 70 },
+            { cat: "拌菜類", name: "空心菜", price: 45 },
+            { cat: "拌菜類", name: "金針菇", price: 40, addons: [{name:"沙茶",price:0},{name:"蒜頭",price:0}] },
+            { cat: "拌菜類", name: "高麗菜", price: 45, addons: [{name:"沙茶",price:0},{name:"蒜頭",price:0}] },
+            { cat: "拌菜類", name: "豆芽菜", price: 30, addons: [{name:"沙茶",price:0},{name:"蒜頭",price:0}] },
+            { cat: "拌菜類", name: "魯蛋", price: 15 },
+            { cat: "拌菜類", name: "油豆腐", price: 10 },
+            { cat: "羹類", name: "鴨肉羹", price: 70 },
+            { cat: "羹類", name: "鴨肉飯羹", price: 80 },
+            { cat: "羹類", name: "鴨肉米粉羹", price: 80 },
+            { cat: "羹類", name: "鴨肉冬粉羹", price: 80 },
+            { cat: "羹類", name: "鴨肉麵羹", price: 80 },
+            { cat: "湯類", name: "當歸鴨", price: 85 },
+            { cat: "湯類", name: "當歸鴨麵線", price: 90 },
+            { cat: "湯類", name: "當歸雞腿湯", price: 85 },
+            { cat: "湯類", name: "當歸雞腿麵線", price: 90 },
+            { cat: "湯類", name: "鴨肉冬粉湯", price: 80, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "鴨肉米粉湯", price: 80, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "鴨肉麵湯", price: 80, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "冬粉湯", price: 50, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "麵線湯", price: 50, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "米血湯", price: 50, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "鴨肉湯", price: 70, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "豬肝湯", price: 65, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "鴨心湯", price: 70, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "鴨腱湯", price: 65, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] },
+            { cat: "湯類", name: "鴨肉丸湯", price: 45, addons: [{name:"清湯",price:0},{name:"當歸(+5元)",price:5}] }
+          ]
+        },
+        {
+          name: "饗叮噹食堂",
+          phone: "0912030372",
+          note: "公司行號訂餐早上請於 9:30 前、下午於 14:00 前訂購",
+          sort_order: 3,
+          items: [
+            { cat: "健康餐盒", name: "舒肥雞胸肉餐盒", price: 90 },
+            { cat: "健康餐盒", name: "照燒雞腿排餐盒", price: 90 },
+            { cat: "健康餐盒", name: "泰式打拋豬餐盒", price: 90 },
+            { cat: "健康餐盒", name: "紐澳良烤腿排餐盒", price: 90 },
+            { cat: "健康餐盒", name: "每日驚喜特餐", price: 90 },
+            { cat: "健康餐盒", name: "港式叉燒肉餐盒", price: 90, addons: [{name:"單點叉燒(不飯菜)",price:-45}] },
+            { cat: "健康餐盒", name: "台式炸豬排餐盒", price: 110, addons: [{name:"單點豬排(不飯菜)",price:-40}] },
+            { cat: "健康餐盒", name: "日式唐揚雞餐盒", price: 110, addons: [{name:"單點唐揚雞(不飯菜)",price:-40}] },
+            { cat: "健康餐盒", name: "美味大雞腿餐盒", price: 110, addons: [{name:"單點大雞腿(不飯菜)",price:-40}] },
+            { cat: "健康餐盒", name: "ALLPASS大雞排餐盒", price: 120 },
+            { cat: "健康餐盒", name: "蒲燒鯛魚餐盒(季節限定)", price: 120 },
+            { cat: "健康餐盒", name: "健康雙拼餐盒", price: 120 },
+            { cat: "健康餐盒", name: "驚喜小鳥餐", price: 60 },
+            { cat: "韓式飯捲", name: "好想贏韓國飯捲", price: 70, addons: [{name:"加料(+10元)",price:10}] },
+            { cat: "韓式飯捲", name: "黑胡椒豬肉飯捲", price: 70, addons: [{name:"加料(+10元)",price:10}] },
+            { cat: "韓式飯捲", name: "泰式打拋豬飯捲", price: 70, addons: [{name:"加料(+10元)",price:10}] },
+            { cat: "韓式飯捲", name: "鮪魚蔬菜飯捲", price: 70, addons: [{name:"加料(+10元)",price:10}] },
+            { cat: "韓式飯捲", name: "培根起司飯捲", price: 70, addons: [{name:"加料(+10元)",price:10}] },
+            { cat: "韓式飯捲", name: "薑汁燒肉飯捲", price: 70, addons: [{name:"加料(+10元)",price:10}] },
+            { cat: "韓式飯捲", name: "卡拉雞腿飯捲", price: 70, addons: [{name:"加料(+10元)",price:10}] },
+            { cat: "韓式飯捲", name: "叉燒豬肉飯捲", price: 70, addons: [{name:"加料(+10元)",price:10}] },
+            { cat: "義大利麵", name: "蔬食義大利麵", price: 80, addons: [{name:"紅醬",price:0},{name:"白醬",price:0},{name:"青醬(+10元)",price:10},{name:"加麵(+10元)",price:10},{name:"加起司(+10元)",price:10}] },
+            { cat: "義大利麵", name: "培根義大利麵", price: 90, addons: [{name:"紅醬",price:0},{name:"白醬",price:0},{name:"青醬(+10元)",price:10},{name:"加麵(+10元)",price:10},{name:"加起司(+10元)",price:10}] },
+            { cat: "義大利麵", name: "舒肥雞胸義大利麵", price: 90, addons: [{name:"紅醬",price:0},{name:"白醬",price:0},{name:"青醬(+10元)",price:10},{name:"加麵(+10元)",price:10},{name:"加起司(+10元)",price:10}] },
+            { cat: "義大利麵", name: "嫩脆德腸義大利麵", price: 90, addons: [{name:"紅醬",price:0},{name:"白醬",price:0},{name:"青醬(+10元)",price:10},{name:"加麵(+10元)",price:10},{name:"加起司(+10元)",price:10}] },
+            { cat: "義大利麵", name: "唐揚雞義大利麵", price: 110, addons: [{name:"紅醬",price:0},{name:"白醬",price:0},{name:"青醬(+10元)",price:10},{name:"加麵(+10元)",price:10},{name:"加起司(+10元)",price:10}] },
+            { cat: "義大利麵", name: "豬排義大利麵", price: 110, addons: [{name:"紅醬",price:0},{name:"白醬",price:0},{name:"青醬(+10元)",price:10},{name:"加麵(+10元)",price:10},{name:"加起司(+10元)",price:10}] },
+            { cat: "義大利麵", name: "雞排義大利麵", price: 120, addons: [{name:"紅醬",price:0},{name:"白醬",price:0},{name:"青醬(+10元)",price:10},{name:"加麵(+10元)",price:10},{name:"加起司(+10元)",price:10}] },
+            { cat: "饗吃麵與水餃", name: "水餃(12顆)", price: 50 },
+            { cat: "饗吃麵與水餃", name: "炸水餃(10顆)", price: 70 },
+            { cat: "饗吃麵與水餃", name: "原味鍋燒", price: 80, addons: [{name:"意麵",price:0},{name:"冬粉",price:0},{name:"雞絲麵",price:0},{name:"科學麵",price:0},{name:"加麵(+10元)",price:10}] },
+            { cat: "饗吃麵與水餃", name: "泡菜鍋燒", price: 90, addons: [{name:"意麵",price:0},{name:"冬粉",price:0},{name:"雞絲麵",price:0},{name:"科學麵",price:0},{name:"加麵(+10元)",price:10}] },
+            { cat: "饗吃麵與水餃", name: "奶香鍋燒", price: 90, addons: [{name:"意麵",price:0},{name:"冬粉",price:0},{name:"雞絲麵",price:0},{name:"科學麵",price:0},{name:"加麵(+10元)",price:10}] },
+            { cat: "饗吃麵與水餃", name: "韓式拉麵", price: 90, addons: [{name:"加麵(+10元)",price:10},{name:"加起司(+10元)",price:10}] },
+            { cat: "饗吃麵與水餃", name: "炒泡麵", price: 50, addons: [{name:"加麵(+10元)",price:10}] },
+            { cat: "炸物與飲品", name: "麥克雞塊", price: 30 },
+            { cat: "炸物與飲品", name: "薯餅", price: 30 },
+            { cat: "炸物與飲品", name: "雞米花", price: 50 },
+            { cat: "炸物與飲品", name: "古早味紅茶", price: 40 },
+            { cat: "炸物與飲品", name: "奶香金萱", price: 50 },
+            { cat: "炸物與飲品", name: "蜜桃烏龍", price: 50 },
+            { cat: "炸物與飲品", name: "蜂蜜檸檬", price: 60 },
+            { cat: "炸物與飲品", name: "饗受厚奶茶", price: 60 },
+            { cat: "炸物與飲品", name: "饗受厚奶綠", price: 60 }
+          ]
+        },
+        {
+          name: "小南便當",
+          phone: "",
+          note: "經典台式便當 (115.06菜單)",
+          sort_order: 4,
+          items: [
+            { cat: "雞肉類便當", name: "招牌雞腿飯", price: 115 },
+            { cat: "雞肉類便當", name: "招牌雞排飯", price: 100 },
+            { cat: "雞肉類便當", name: "辣味雞排飯", price: 100 },
+            { cat: "雞肉類便當", name: "煙燻雞腿飯", price: 100 },
+            { cat: "雞肉類便當", name: "美式雞腿飯", price: 90 },
+            { cat: "雞肉類便當", name: "滷雞腿飯", price: 90 },
+            { cat: "雞肉類便當", name: "三杯雞飯", price: 90 },
+            { cat: "豬肉類便當", name: "招牌排骨飯", price: 90 },
+            { cat: "豬肉類便當", name: "滷排骨飯", price: 90 },
+            { cat: "豬肉類便當", name: "筍乾爌肉飯", price: 95 },
+            { cat: "豬肉類便當", name: "日式豬排飯", price: 80 },
+            { cat: "豬肉類便當", name: "醬燒豬柳飯", price: 80 },
+            { cat: "豬肉類便當", name: "香腸飯", price: 70 },
+            { cat: "魚類與菜飯", name: "魚肚飯", price: 120 },
+            { cat: "魚類與菜飯", name: "柳葉魚飯", price: 70 },
+            { cat: "魚類與菜飯", name: "鹹魚飯", price: 85 },
+            { cat: "魚類與菜飯", name: "肉魚飯", price: 80 },
+            { cat: "魚類與菜飯", name: "秋刀魚飯", price: 80 },
+            { cat: "魚類與菜飯", name: "福氣魚排飯", price: 75 },
+            { cat: "魚類與菜飯", name: "花枝排飯", price: 70 },
+            { cat: "魚類與菜飯", name: "菜飯便當", price: 60 }
+          ]
+        },
+        {
+          name: "悟饕池上飯包",
+          phone: "",
+          note: "訂滿3個即可外送｜請提前1小時訂購｜白飯換養生飯+$10",
+          sort_order: 5,
+          items: [
+            { cat: "池上飯包", name: "經典池上飯包", price: 95, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "炭火烤肉飯包", price: 100, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "黃金豬排飯包", price: 110, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "悟饕經典排骨飯包", price: 120, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "鐵道排骨飯包", price: 120, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "土雞肉飯", price: 95, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "椒來麻雞腿飯包", price: 130, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "香酥雞腿飯包", price: 130, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "悟厚大G排飯包", price: 130, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "蒲燒鯛魚飯包", price: 110, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "台式焢肉飯包", price: 115, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "蒜香雞菲力飯包", price: 110, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "極上油雞腿飯包", price: 130, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "池上飯包", name: "塩の花魚飯包", price: 130, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "更多美味選擇", name: "燒肉飯包", price: 100, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "更多美味選擇", name: "雞油飯", price: 105, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "更多美味選擇", name: "無骨雞腿排飯包", price: 105, addons: [{name:"換養生飯(+10元)",price:10}] },
+            { cat: "更多美味選擇", name: "海陸雙拼飯包", price: 120, addons: [{name:"換養生飯(+10元)",price:10}] }
+          ]
+        },
+        {
+          name: "嘉義阿雲火雞肉飯(仁德店)",
+          phone: "0903305527",
+          note: "台南市仁德區民安路一段362號｜滿 500 元外送",
+          sort_order: 6,
+          items: [
+            { cat: "便當與飯類", name: "火雞肉便當", price: 90 },
+            { cat: "便當與飯類", name: "魯肉飯便當", price: 80 },
+            { cat: "便當與飯類", name: "排骨便當", price: 85 },
+            { cat: "便當與飯類", name: "火雞片便當", price: 120 },
+            { cat: "便當與飯類", name: "火雞片飯(大)", price: 90 },
+            { cat: "便當與飯類", name: "火雞片飯(小)", price: 70 },
+            { cat: "便當與飯類", name: "火雞肉飯(大)", price: 65 },
+            { cat: "便當與飯類", name: "火雞肉飯(小)", price: 55 },
+            { cat: "便當與飯類", name: "滷肉飯(大)", price: 50 },
+            { cat: "便當與飯類", name: "滷肉飯(小)", price: 40 },
+            { cat: "便當與飯類", name: "白飯", price: 15 },
+            { cat: "湯類", name: "鹹菜豬肚湯", price: 40 },
+            { cat: "湯類", name: "肝連湯", price: 40 },
+            { cat: "湯類", name: "骨肉湯", price: 40 },
+            { cat: "湯類", name: "魚丸湯", price: 25 },
+            { cat: "湯類", name: "貢丸湯", price: 25 },
+            { cat: "湯類", name: "紫菜湯", price: 15 },
+            { cat: "單點與小菜", name: "火雞肉切盤", price: 120 },
+            { cat: "單點與小菜", name: "燙豬肚", price: 50 },
+            { cat: "單點與小菜", name: "蠔油肝連肉", price: 50 },
+            { cat: "單點與小菜", name: "丁香花生(大)", price: 60 },
+            { cat: "單點與小菜", name: "丁香花生(小)", price: 40 },
+            { cat: "單點與小菜", name: "皮蛋豆腐", price: 40 },
+            { cat: "單點與小菜", name: "筍干", price: 40 },
+            { cat: "單點與小菜", name: "扁魚白菜", price: 40 },
+            { cat: "單點與小菜", name: "單點排骨", price: 50 },
+            { cat: "單點與小菜", name: "魯蛋", price: 15 },
+            { cat: "單點與小菜", name: "油豆腐(2塊)", price: 15 }
+          ]
+        },
+        {
+          name: "天青好時光(原嫩嫩燒肉飯)",
+          phone: "",
+          note: "招牌便當與滿足雙拼系列 (115.08菜單)",
+          sort_order: 7,
+          items: [
+            { cat: "招牌好食", name: "排骨飯", price: 75 },
+            { cat: "招牌好食", name: "嫩肉飯", price: 85 },
+            { cat: "招牌好食", name: "瓜仔肉飯", price: 80 },
+            { cat: "招牌好食", name: "魚排飯", price: 80 },
+            { cat: "招牌好食", name: "炸雞排飯", price: 90 },
+            { cat: "招牌好食", name: "日式豬排飯", price: 90 },
+            { cat: "招牌好食", name: "醬滷雞腿飯", price: 95 },
+            { cat: "滿足雙拼", name: "1號：嫩肉+雞腿飯", price: 130 },
+            { cat: "滿足雙拼", name: "2號：嫩肉+雞排飯", price: 130 },
+            { cat: "滿足雙拼", name: "3號：嫩肉+排骨飯", price: 110 },
+            { cat: "滿足雙拼", name: "4號：瓜仔+雞腿飯", price: 120 },
+            { cat: "滿足雙拼", name: "5號：瓜仔+雞排飯", price: 120 },
+            { cat: "滿足雙拼", name: "6號：瓜仔+排骨飯", price: 110 },
+            { cat: "單點小食", name: "滷蛋", price: 10 },
+            { cat: "單點小食", name: "香腸", price: 20 },
+            { cat: "單點小食", name: "小菜", price: 20 },
+            { cat: "單點小食", name: "蒸蛋", price: 20 },
+            { cat: "單點小食", name: "單點排骨", price: 40 },
+            { cat: "單點小食", name: "單點炸雞排", price: 50 },
+            { cat: "單點小食", name: "單點日式豬排", price: 50 },
+            { cat: "單點小食", name: "單點醬滷雞腿", price: 65 }
+          ]
+        },
+        {
+          name: "炒霸炒飯專賣店",
+          phone: "06-2701516",
+          note: "仁德區民安路一段451號｜0906072093｜加飯/加麵/加料+20元",
+          sort_order: 8,
+          items: [
+            { cat: "經典炒飯(70元)", name: "培根炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "肉絲炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "火腿炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "蕃茄蛋炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "辣(豬)味炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "豬肉蒜香炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "咖哩雞炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "咖哩豬炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "玉米雞柳炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "蝦仁炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "廣式炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "鮭魚炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "鹹魚雞柳炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "霸王雙鮮炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "鳳梨蝦仁炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "黃金雞肉炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "黃金豬肉炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "蝦仁肉絲炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "蝦仁火腿炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "香腸炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "菜脯雞肉炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "經典炒飯(70元)", name: "菜脯豬肉炒飯", price: 70, addons: [{name:"加飯(+20元)",price:20}] },
+            { cat: "特色與豪華炒飯", name: "韓式泡菜炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "海陸三鮮炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "魩仔魚炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "皮蛋炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "櫻花蝦炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "XO醬雙味炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "鹹豬肉炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "韓式三鮮泡菜炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "揚州炒飯", price: 80 },
+            { cat: "特色與豪華炒飯", name: "麻油炒飯", price: 80, addons: [{name:"豬肉",price:0},{name:"牛肉",price:0},{name:"羊肉",price:0},{name:"雞肉",price:0}] },
+            { cat: "特色與豪華炒飯", name: "黑胡椒炒飯", price: 80, addons: [{name:"豬肉",price:0},{name:"牛肉",price:0},{name:"羊肉",price:0},{name:"雞肉",price:0}] },
+            { cat: "特色與豪華炒飯", name: "沙茶炒飯", price: 80, addons: [{name:"豬肉",price:0},{name:"牛肉",price:0},{name:"羊肉",price:0},{name:"雞肉",price:0}] },
+            { cat: "特色與豪華炒飯", name: "烏魚子炒飯", price: 110 },
+            { cat: "特色與豪華炒飯", name: "烏魚子櫻花蝦炒飯", price: 110 },
+            { cat: "特色與豪華炒飯", name: "烏魚子鮭魚炒飯", price: 110 },
+            { cat: "蛋包飯/燴飯/蓋飯/炒麵", name: "蛋包飯", price: 80, addons: [{name:"蕃茄",price:0},{name:"咖哩",price:0}] },
+            { cat: "蛋包飯/燴飯/蓋飯/炒麵", name: "炒麵", price: 100, addons: [{name:"油麵",price:0},{name:"意麵",price:0},{name:"烏龍",price:0}] },
+            { cat: "蛋包飯/燴飯/蓋飯/炒麵", name: "燴飯", price: 100, addons: [{name:"豬肉",price:0},{name:"牛肉",price:0},{name:"羊肉",price:0},{name:"雞肉",price:0}] },
+            { cat: "蛋包飯/燴飯/蓋飯/炒麵", name: "蔥爆蓋飯", price: 100, addons: [{name:"豬肉",price:0},{name:"牛肉",price:0},{name:"羊肉",price:0},{name:"雞肉",price:0}] },
+            { cat: "蛋包飯/燴飯/蓋飯/炒麵", name: "沙茶蓋飯", price: 100, addons: [{name:"豬肉",price:0},{name:"牛肉",price:0},{name:"羊肉",price:0},{name:"雞肉",price:0}] },
+            { cat: "蛋包飯/燴飯/蓋飯/炒麵", name: "黑胡椒蓋飯", price: 100, addons: [{name:"豬肉",price:0},{name:"牛肉",price:0},{name:"羊肉",price:0},{name:"雞肉",price:0}] },
+            { cat: "鍋燒/鍋物/粥品", name: "原味鍋燒", price: 70, addons: [{name:"冬粉",price:0},{name:"意麵",price:0},{name:"雞絲",price:0},{name:"烏龍",price:0}] },
+            { cat: "鍋燒/鍋物/粥品", name: "泡菜鍋燒", price: 80, addons: [{name:"冬粉",price:0},{name:"意麵",price:0},{name:"雞絲",price:0},{name:"烏龍",price:0}] },
+            { cat: "鍋燒/鍋物/粥品", name: "牛奶鍋燒", price: 100, addons: [{name:"冬粉",price:0},{name:"意麵",price:0},{name:"雞絲",price:0},{name:"烏龍",price:0}] },
+            { cat: "鍋燒/鍋物/粥品", name: "沙茶鍋", price: 100, addons: [{name:"附白飯",price:0},{name:"附冬粉",price:0}] },
+            { cat: "鍋燒/鍋物/粥品", name: "泡菜鍋", price: 100, addons: [{name:"附白飯",price:0},{name:"附冬粉",price:0}] },
+            { cat: "鍋燒/鍋物/粥品", name: "牛奶鍋", price: 120, addons: [{name:"附白飯",price:0},{name:"附冬粉",price:0}] },
+            { cat: "鍋燒/鍋物/粥品", name: "皮蛋瘦肉粥", price: 70 },
+            { cat: "鍋燒/鍋物/粥品", name: "魩仔魚粥", price: 70 },
+            { cat: "鍋燒/鍋物/粥品", name: "海產粥", price: 70 },
+            { cat: "小炒與湯類", name: "蔥爆小炒", price: 130, addons: [{name:"豬",price:0},{name:"牛",price:0},{name:"羊",price:0},{name:"雞",price:0}] },
+            { cat: "小炒與湯類", name: "沙茶小炒", price: 130, addons: [{name:"豬",price:0},{name:"牛",price:0},{name:"羊",price:0},{name:"雞",price:0}] },
+            { cat: "小炒與湯類", name: "黑胡椒小炒", price: 130, addons: [{name:"豬",price:0},{name:"牛",price:0},{name:"羊",price:0},{name:"雞",price:0}] },
+            { cat: "小炒與湯類", name: "炒鹹豬肉", price: 130 },
+            { cat: "小炒與湯類", name: "蔥蛋", price: 50 },
+            { cat: "小炒與湯類", name: "菜脯蛋", price: 60 },
+            { cat: "小炒與湯類", name: "炒青菜", price: 60 },
+            { cat: "小炒與湯類", name: "魚丸湯", price: 30 },
+            { cat: "小炒與湯類", name: "蛋花湯", price: 30 },
+            { cat: "小炒與湯類", name: "蛤仔湯", price: 40 }
+          ]
+        },
+        {
+          name: "六甲(炒飯/鍋燒/粥品)",
+          phone: "",
+          note: "炒類加大+10元｜鍋燒大碗+10元",
+          sort_order: 9,
+          items: [
+            { cat: "炒類", name: "蝦仁炒飯", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "肉絲炒飯", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "鹹魚炒飯", price: 80, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "鳳梨蕃茄炒飯", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "咖哩炒飯", price: 80, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "培根炒飯", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "櫻花蝦炒飯", price: 80, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "泡菜炒飯", price: 80, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "黑胡椒牛燴飯", price: 80, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "什錦炒麵", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "什錦炒米粉", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "什錦湯麵", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "什錦米粉湯", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "乾意麵", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "蔥爆培根飯", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "炒類", name: "素食炒飯", price: 70, addons: [{name:"加大(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "鍋燒意麵", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "鍋燒冬粉", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "鍋燒烏龍麵", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "鍋燒關廟麵", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "鍋燒雞絲麵", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "皮蛋瘦肉粥", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "香菇瘦肉粥", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "廣東粥", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "魩魚粥", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "海產粥", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "牛肉滑蛋粥", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "鍋燒與粥類", name: "香蔥米粉湯", price: 60, addons: [{name:"大碗(+10元)",price:10}] },
+            { cat: "湯類", name: "豬肝湯", price: 45 },
+            { cat: "湯類", name: "蛋花湯", price: 35 },
+            { cat: "湯類", name: "魚丸湯", price: 35 },
+            { cat: "湯類", name: "蚵仔湯", price: 45 },
+            { cat: "湯類", name: "蛤仔湯", price: 45 },
+            { cat: "湯類", name: "貢丸湯", price: 35 }
+          ]
+        },
+        {
+          name: "甲一飯包",
+          phone: "",
+          note: "外送預約請於上午 10:00 前｜工廠公司團體訂餐",
+          sort_order: 10,
+          items: [
+            { cat: "精選便當", name: "每日特餐", price: 80 },
+            { cat: "精選便當", name: "招牌飯", price: 85 },
+            { cat: "精選便當", name: "叉燒飯", price: 85 },
+            { cat: "精選便當", name: "原味咔啦腿排飯", price: 85 },
+            { cat: "精選便當", name: "和風咔啦腿排飯", price: 85 },
+            { cat: "精選便當", name: "椒麻咔啦腿排飯", price: 85 },
+            { cat: "精選便當", name: "黃金魚排飯", price: 85 },
+            { cat: "精選便當", name: "薄鹽鯖魚飯", price: 85 },
+            { cat: "精選便當", name: "蒲燒雞腿飯", price: 85 },
+            { cat: "精選便當", name: "塔香三杯雞飯", price: 85 },
+            { cat: "精選便當", name: "法式豬排飯", price: 90 },
+            { cat: "精選便當", name: "蔥燒爌肉飯", price: 95 },
+            { cat: "精選便當", name: "懷舊排骨飯", price: 100 },
+            { cat: "精選便當", name: "鐵路排骨飯", price: 100 },
+            { cat: "精選便當", name: "招牌雞腿飯", price: 110 },
+            { cat: "精選便當", name: "鮮嫩雞排飯", price: 110 },
+            { cat: "精選便當", name: "鹽酥雞腿飯", price: 110 },
+            { cat: "精選便當", name: "蜜汁雞腿飯", price: 110 }
+          ]
+        },
+        {
+          name: "甲味鴨片飯",
+          phone: "",
+          note: "飯食、飯盒、主菜、湯品與粥麵專賣",
+          sort_order: 11,
+          items: [
+            { cat: "飯盒類(便當)", name: "香腸飯盒", price: 85 },
+            { cat: "飯盒類(便當)", name: "日式鯖魚飯盒", price: 95 },
+            { cat: "飯盒類(便當)", name: "滷排飯盒", price: 95 },
+            { cat: "飯盒類(便當)", name: "鴨片飯盒", price: 100 },
+            { cat: "飯盒類(便當)", name: "軟骨飯盒", price: 100 },
+            { cat: "飯盒類(便當)", name: "糖醋里肌飯盒", price: 100 },
+            { cat: "飯盒類(便當)", name: "宮保雞丁飯盒", price: 100 },
+            { cat: "飯盒類(便當)", name: "金沙獅子頭飯盒", price: 100 },
+            { cat: "飯盒類(便當)", name: "滷豬腳飯盒", price: 110 },
+            { cat: "飯盒類(便當)", name: "滷雞腿飯盒", price: 110 },
+            { cat: "飯盒類(便當)", name: "海陸飯盒", price: 115 },
+            { cat: "飯盒類(便當)", name: "雙陸飯盒", price: 115 },
+            { cat: "飯盒類(便當)", name: "紅燒牛肉飯盒", price: 120 },
+            { cat: "飯食類(單碗)", name: "白飯", price: 10 },
+            { cat: "飯食類(單碗)", name: "肉燥飯", price: 30 },
+            { cat: "飯食類(單碗)", name: "香腸肉燥飯", price: 55 },
+            { cat: "飯食類(單碗)", name: "日式鯖魚飯", price: 60 },
+            { cat: "飯食類(單碗)", name: "滷排飯", price: 60 },
+            { cat: "飯食類(單碗)", name: "鴨片飯", price: 65 },
+            { cat: "飯食類(單碗)", name: "軟骨飯", price: 65 },
+            { cat: "飯食類(單碗)", name: "糖醋里肌飯", price: 65 },
+            { cat: "飯食類(單碗)", name: "宮保雞丁飯", price: 65 },
+            { cat: "飯食類(單碗)", name: "金沙獅子頭飯", price: 65 },
+            { cat: "飯食類(單碗)", name: "滷豬腳飯", price: 75 },
+            { cat: "飯食類(單碗)", name: "滷雞腿飯", price: 75 },
+            { cat: "飯食類(單碗)", name: "海陸飯", price: 80 },
+            { cat: "飯食類(單碗)", name: "雙陸飯", price: 80 },
+            { cat: "飯食類(單碗)", name: "紅燒牛肉飯", price: 80 },
+            { cat: "粥麵類", name: "紅燒軟骨麵", price: 100 },
+            { cat: "粥麵類", name: "養生軟骨麵", price: 100 },
+            { cat: "粥麵類", name: "紅燒豬腳麵", price: 110 },
+            { cat: "粥麵類", name: "養生軟骨冬粉", price: 100 },
+            { cat: "粥麵類", name: "養生軟骨粥", price: 100 },
+            { cat: "粥麵類", name: "人蔘雞肉粥", price: 100 },
+            { cat: "粥麵類", name: "紅燒牛肉麵", price: 120 },
+            { cat: "主菜單點", name: "單點日式鯖魚", price: 55 },
+            { cat: "主菜單點", name: "單點滷排骨", price: 55 },
+            { cat: "主菜單點", name: "單點紅燒軟骨", price: 60 },
+            { cat: "主菜單點", name: "鴨片切盤", price: 60 },
+            { cat: "主菜單點", name: "單點糖醋里肌", price: 60 },
+            { cat: "主菜單點", name: "單點宮保雞丁", price: 60 },
+            { cat: "主菜單點", name: "單點金沙獅子頭", price: 60 },
+            { cat: "主菜單點", name: "單點滷雞腿", price: 70 },
+            { cat: "主菜單點", name: "單點滷豬腳", price: 70 },
+            { cat: "主菜單點", name: "單點紅燒牛肉", price: 75 },
+            { cat: "主菜單點", name: "烤鴨腿切盤", price: 160 },
+            { cat: "小菜與湯品", name: "滷蛋", price: 15 },
+            { cat: "小菜與湯品", name: "滷丸", price: 10 },
+            { cat: "小菜與湯品", name: "油豆腐", price: 10 },
+            { cat: "小菜與湯品", name: "荷包蛋", price: 15 },
+            { cat: "小菜與湯品", name: "滷筍乾", price: 30 },
+            { cat: "小菜與湯品", name: "涼拌木耳", price: 35 },
+            { cat: "小菜與湯品", name: "燙青菜", price: 35 },
+            { cat: "小菜與湯品", name: "台式泡菜", price: 35 },
+            { cat: "小菜與湯品", name: "皮蛋豆腐", price: 40 },
+            { cat: "小菜與湯品", name: "苦瓜封", price: 45 },
+            { cat: "小菜與湯品", name: "蒜泥白肉", price: 50 },
+            { cat: "小菜與湯品", name: "滷大腸", price: 60 },
+            { cat: "小菜與湯品", name: "紫菜湯", price: 20 },
+            { cat: "小菜與湯品", name: "菜頭湯", price: 25 },
+            { cat: "小菜與湯品", name: "魚丸湯", price: 35 },
+            { cat: "小菜與湯品", name: "苦瓜封湯", price: 50 },
+            { cat: "小菜與湯品", name: "養生軟骨湯", price: 60 },
+            { cat: "小菜與湯品", name: "人蔘雞湯", price: 60 },
+            { cat: "小菜與湯品", name: "麻油雞湯(冬季限定)", price: 70 },
+            { cat: "小菜與湯品", name: "麻油雞麵線(冬季限定)", price: 110 },
+            { cat: "小菜與湯品", name: "麻油雞冬粉(冬季限定)", price: 110 }
+          ]
+        }
+      ];
+    }
+
+    window.importAll11RealStores = function() {
+      openConfirm("確定要將「11 家真實合作店家與超過 320 道完整菜色」一鍵匯入雲端資料庫嗎？\n（已存在的同名店家不會重複建立）", async (yes) => {
+        if (!yes) return;
+        showToast("⏳ 正在批次寫入 11 家店家菜單至雲端，請稍候 3 秒...");
+        const dataset = get11RealStoresDataset();
+
+        try {
+          for (const st of dataset) {
+            let existingStore = storesList.find(s => s.name === st.name);
+            let storeId = existingStore ? existingStore.id : null;
+
+            if (!storeId) {
+              const stRef = await db.collection("stores").add({
+                name: st.name,
+                phone: st.phone,
+                note: st.note,
+                sort_order: st.sort_order,
+                is_active: true
+              });
+              storeId = stRef.id;
+            }
+
+            // 分批寫入該店菜色 (每批最多 400 筆避免超過 Firestore 500 上限)
+            const batch = db.batch();
+            st.items.forEach(it => {
+              const alreadyHas = menuItemsList.some(m => m.store_id === storeId && m.name === it.name);
+              if (!alreadyHas) {
+                const itemRef = db.collection("menu_items").doc();
+                batch.set(itemRef, {
+                  store_id: storeId,
+                  store_name: st.name,
+                  category_name: it.cat,
+                  name: it.name,
+                  price: Number(it.price),
+                  addons: it.addons || [],
+                  is_available: true
+                });
+              }
+            });
+            await batch.commit();
+          }
+          showToast("🎉 11 家真實名店與 320+ 道菜色已全數匯入雲端！");
+        } catch (e) {
+          console.error(e);
+          showToast("匯入過程發生錯誤，請檢查網路或 Rules");
+        }
+      });
+    };
+
+    // ================= 8. 店家與菜單日常維護 =================
+    function populateManageStoreSelect() {
+      const sel = document.getElementById("manageStoreSelect");
+      const proxySel = document.getElementById("proxyStoreSelect");
+      if (!sel) return;
+
+      const curVal = sel.value;
+      sel.innerHTML = storesList.map(s => `<option value="${s.id}">${s.name} (${s.phone || '無電話'})</option>`).join('');
+      if (curVal && storesList.some(s => s.id === curVal)) sel.value = curVal;
+
+      if (proxySel) {
+        proxySel.innerHTML = storesList.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        renderProxyStoreItems();
+      }
+      renderStoreMenuEditor();
+    }
+
+    window.renderStoreMenuEditor = function() {
+      const storeId = document.getElementById("manageStoreSelect")?.value;
+      const metaBar = document.getElementById("storeMetaInfoBar");
+      const container = document.getElementById("storeMenuItemsContainer");
+      if (!container) return;
+
+      const st = storesList.find(s => s.id === storeId);
+      if (!st) {
+        metaBar.innerText = "尚未選擇店家";
+        container.innerHTML = "";
+        return;
+      }
+
+      metaBar.innerHTML = `<strong>🏪 ${st.name}</strong> ｜ 📞 電話：${st.phone \vert{}\vert{} '未設定'} ｜ 📝 備註：${st.note || '無'}`;
+      const items = menuItemsList.filter(m => m.store_id === storeId);
+
+      const catGroups = {};
+      items.forEach(it => {
+        const c = it.category_name || "一般餐點";
+        if (!catGroups[c]) catGroups[c] = [];
+        catGroups[c].push(it);
+      });
+
+      container.innerHTML = Object.entries(catGroups).map(([catName, list]) => `
+        <div style="margin-bottom:16px; border:1px solid var(--border); border-radius:12px; padding:12px;">
+          <h4 style="font-size:15px; font-weight:800; color:var(--primary); margin-bottom:8px;">📂 ${catName} (${list.length} 項)</h4>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px;">
+            ${list.map(it => `
+              <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:8px 12px; border-radius:8px; border:1px solid #e2e8f0;">
+                <div>
+                  <div style="font-weight:700; font-size:14px; ${it.is_available === false ? 'text-decoration:line-through; color:#94a3b8;' : ''}">${it.name}</div>
+                  <div style="font-size:13px; color:var(--rose); font-weight:800;">$${it.price}</div>
+                </div>
+                <div style="display:flex; gap:4px;">
+                  <button class="btn ${it.is_available === false ? 'btn-gray' : 'btn-green'}" style="padding:4px 8px; font-size:11px;" onclick="toggleMenuItemAvail('${it.id}', ${it.is_available === false})">
+                    ${it.is_available === false ? '已售完' : '供應中'}
+                  </button>
+                  <button class="btn btn-danger-outline" style="padding:4px 8px; font-size:11px;" onclick="deleteSingleMenuItem('${it.id}')">✕</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('') || `<p style="color:var(--sub); padding:16px;">此店家尚無菜色</p>`;
+    };
+
+    window.toggleMenuItemAvail = async function(itemId, nextAvail) {
+      await db.collection("menu_items").doc(itemId).update({ is_available: nextAvail });
+    };
+
+    window.deleteSingleMenuItem = async function(itemId) {
+      await db.collection("menu_items").doc(itemId).delete();
+      showToast("🗑️ 已刪除該品項");
+    };
+
+    window.openAddStoreModal = function() {
+      document.getElementById("modalStoreNameInput").value = "";
+      document.getElementById("modalStorePhoneInput").value = "";
+      document.getElementById("modalStoreNoteInput").value = "";
+      document.getElementById("addStoreModal").style.display = "flex";
+    };
+
+    window.saveNewStore = async function() {
+      const name = document.getElementById("modalStoreNameInput").value.trim();
+      if (!name) return showToast("請輸入店家名稱");
+      await db.collection("stores").add({
+        name,
+        phone: document.getElementById("modalStorePhoneInput").value.trim(),
+        note: document.getElementById("modalStoreNoteInput").value.trim(),
+        sort_order: storesList.length + 1,
+        is_active: true
+      });
+      document.getElementById("addStoreModal").style.display = "none";
+      showToast("✅ 店家已新增");
+    };
+
+    window.deleteSelectedStore = function() {
+      const storeId = document.getElementById("manageStoreSelect")?.value;
+      const st = storesList.find(s => s.id === storeId);
+      if (!st) return;
+      openConfirm(`確定要刪除「${st.name}」及其所有菜色嗎？`, async (yes) => {
+        if (!yes) return;
+        await db.collection("stores").doc(storeId).delete();
+        const items = menuItemsList.filter(m => m.store_id === storeId);
+        const batch = db.batch();
+        items.forEach(i => batch.delete(db.collection("menu_items").doc(i.id)));
+        await batch.commit();
+        showToast("🗑️ 已刪除該店家與所屬菜單");
+      });
+    };
+
+    window.openAddMenuItemModal = function() {
+      document.getElementById("itemCatInput").value = "便當類";
+      document.getElementById("itemNameInput").value = "";
+      document.getElementById("itemPriceInput").value = "";
+      document.getElementById("itemAddonsInput").value = "";
+      document.getElementById("addMenuItemModal").style.display = "flex";
+    };
+
+    window.saveNewMenuItem = async function() {
+      const storeId = document.getElementById("manageStoreSelect")?.value;
+      const st = storesList.find(s => s.id === storeId);
+      if (!st) return showToast("請先選擇店家");
+
+      const cat = document.getElementById("itemCatInput").value.trim() || "一般餐點";
+      const name = document.getElementById("itemNameInput").value.trim();
+      const price = Number(document.getElementById("itemPriceInput").value || 0);
+      const rawAddons = document.getElementById("itemAddonsInput").value.trim();
+      if (!name) return showToast("請填寫餐點名稱");
+
+      const addons = rawAddons ? rawAddons.split(",").map(s => {
+        const [aName, aPrice] = s.split(":");
+        return { name: (aName || "").trim(), price: Number(aPrice || 0) };
+      }).filter(a => a.name) : [];
+
+      await db.collection("menu_items").add({
+        store_id: st.id,
+        store_name: st.name,
+        category_name: cat,
+        name,
+        price,
+        addons,
+        is_available: true
+      });
+      document.getElementById("addMenuItemModal").style.display = "none";
+      showToast("✅ 菜色已新增");
+    };
+
+    // ================= 9. 企業與部門設定 & 代客點餐 & QR Code =================
+    function renderDepartmentsConfigUI() {
+      const el = document.getElementById("departmentsConfigList");
+      if (!el) return;
+      el.innerHTML = departmentsList.map((d, idx) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:10px 12px; border-radius:10px; border:1px solid var(--border); margin-bottom:8px; font-size:13px;">
+          <div>
+            <strong style="color:var(--primary); font-size:14px;">🏢 ${d.name}</strong>
+            <span style="margin-left:8px; color:#334155;">審核助理：<strong>${d.assistant || '未指定'}</strong></span>
+            <span style="margin-left:8px; background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:6px; font-family:monospace; font-weight:bold;">密碼: ${d.pin}</span>
+          </div>
+          <button class="btn btn-danger-outline" style="padding:4px 8px; font-size:11px;" onclick="removeDepartmentConfig(${idx})">刪除</button>
+        </div>
+      `).join('');
+    }
+
+    window.addDepartmentConfig = async function() {
+      const name = document.getElementById("newDeptName").value.trim();
+      const assistant = document.getElementById("newDeptAssistant").value.trim();
+      const pin = document.getElementById("newDeptPin").value.trim() || "1234";
+      if (!name) return showToast("請輸入部門名稱");
+
+      const next = [...departmentsList, { name, assistant, pin }];
+      await db.collection("system_settings").doc("departments_config").set({ departments: next });
+      document.getElementById("newDeptName").value = "";
+      document.getElementById("newDeptAssistant").value = "";
+      document.getElementById("newDeptPin").value = "";
+      showToast("✅ 部門與助理密碼已新增");
+    };
+
+    window.removeDepartmentConfig = async function(idx) {
+      const next = [...departmentsList];
+      next.splice(idx, 1);
+      await db.collection("system_settings").doc("departments_config").set({ departments: next });
+      showToast("🗑️ 已移除該部門");
+    };
+
+    window.saveCompanySettings = async function() {
+      await db.collection("system_settings").doc("store_info").set({
+        store_name: document.getElementById("setCompanyName").value.trim() || "企業員工團購訂餐中心",
+        store_notice: document.getElementById("setCompanyNotice").value.trim(),
+        require_dept_approval: document.getElementById("setRequireDeptApproval").checked
+      }, { merge: true });
+      showToast("💾 企業名稱與審核流程設定已儲存！");
+    };
+
+    window.updateHrMasterPin = async function() {
+      const np = document.getElementById("newHrPinInput").value.trim();
+      if (!np || np.length < 4) return showToast("密碼至少需 4 位數");
+      await db.collection("system_settings").doc("admin").set({ pin: np, force_reset_pin: false }, { merge: true });
+      document.getElementById("newHrPinInput").value = "";
+      showToast("🔑 人事總管理密碼已更新！");
+    };
+
+    // 代客點餐
+    window.openProxyOrderModal = function() {
+      proxyCart = [];
+      renderProxyStoreItems();
+      renderProxyCart();
+      document.getElementById("proxyOrderModal").style.display = "flex";
+    };
+
+    window.renderProxyStoreItems = function() {
+      const stId = document.getElementById("proxyStoreSelect")?.value;
+      const itemSel = document.getElementById("proxyItemSelect");
+      if (!itemSel) return;
+      const items = menuItemsList.filter(m => m.store_id === stId && m.is_available !== false);
+      itemSel.innerHTML = items.map(i => `<option value="${i.id}">${i.name} ($${i.price})</option>`).join('');
+    };
+
+    window.addProxyItemToList = function() {
+      const itemId = document.getElementById("proxyItemSelect").value;
+      const it = menuItemsList.find(m => m.id === itemId);
+      if (!it) return;
+      proxyCart.push({
+        item_id: it.id,
+        store_id: it.store_id,
+        store_name: it.store_name,
+        name: it.name,
+        spec: "",
+        qty: 1,
+        unit_price: Number(it.price),
+        subtotal: Number(it.price)
+      });
+      renderProxyCart();
+    };
+
+    function renderProxyCart() {
+      const el = document.getElementById("proxyCartList");
+      if (!proxyCart.length) {
+        el.innerHTML = "尚未選取餐點";
+        return;
+      }
+      const sum = proxyCart.reduce((s, i) => s + i.subtotal, 0);
+      el.innerHTML = proxyCart.map((c, idx) => `
+        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #cbd5e1;">
+          <span>[${c.store_name}] ${c.name} x1</span> <span>$${c.subtotal} <a href="javascript:void(0)" onclick="proxyCart.splice(${idx},1);renderProxyCart();" style="color:red;margin-left:6px;">✕</a></span>
+        </div>
+      `).join('') + `<div style="text-align:right; font-weight:bold; margin-top:6px;">總計：$${sum}</div>`;
+    }
+
+    window.submitProxyOrder = async function() {
+      const dept = document.getElementById("proxyDeptSelect").value;
+      const empName = document.getElementById("proxyEmpName").value.trim();
+      const empId = document.getElementById("proxyEmpId").value.trim() || "代訂";
+      if (!empName || !proxyCart.length) return showToast("請填寫員工姓名並選取餐點");
+
+      const totalAmount = proxyCart.reduce((s, i) => s + i.subtotal, 0);
+      await db.collection("group_orders").add({
+        session_date: getTodayKey(),
+        department: dept,
+        employee_name: empName,
+        employee_id: empId,
+        items: proxyCart,
+        total_amount: totalAmount,
+        note: "後台代訂",
+        status: "approved",
+        is_paid: false,
+        is_collected: false,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      document.getElementById("proxyOrderModal").style.display = "none";
+      showToast("✅ 已完成代客點餐並直接核准！");
+    };
+
+    // 員工訂餐 QR Code 與 LINE 公告文字產生器
+    window.openQrShareModal = function() {
+      let rawUrl = window.location.origin + window.location.pathname;
+      let empUrl = rawUrl.replace(/group_admin(\.html)?$/i, "group_index.html");
+      if (empUrl === rawUrl) empUrl = window.location.origin + "/group_index.html";
+
+      document.getElementById("empEntryUrlInput").value = empUrl;
+      renderEmpQrCode();
+      document.getElementById("qrShareModal").style.display = "flex";
+    };
+
+    window.renderEmpQrCode = function() {
+      const box = document.getElementById("empQrBox");
+      box.innerHTML = "";
+      const url = document.getElementById("empEntryUrlInput").value.trim();
+      new QRCode(box, { text: url, width: 180, height: 180 });
+
+      const pinNotice = document.getElementById("qrDynamicPinNotice");
+      pinNotice.innerText = currentSession.dynamic_pin
+        ? `🔐 今日訂餐動態密碼：${currentSession.dynamic_pin}`
+        : `🔓 今日免輸入動態密碼`;
+    };
+
+    window.copyLineAnnouncementText = function() {
+      const url = document.getElementById("empEntryUrlInput").value.trim();
+      const openNames = storesList.filter(s => (currentSession.open_store_ids || []).includes(s.id)).map(s => s.name).join("、");
+      const lines = [
+        `📣 【${currentSession.title || '今日團購訂餐'}】開放點餐囉！`,
+        `🍱 今日開放店家：${openNames || '請見點餐網頁'}`,
+        `⏰ 截止時間：今日 ${currentSession.deadline || '10:20'} 準時鎖單`,
+        currentSession.dynamic_pin ? `🔐 本次訂餐動態密碼：${currentSession.dynamic_pin}` : ``,
+        `👉 點餐連結：${url}`
+      ].filter(Boolean);
+
+      navigator.clipboard.writeText(lines.join("\n")).then(() => {
+        showToast("📋 已複製 LINE 開團公告文字，可直接貼至公司群組！");
+      });
+    };
+
+    window.addEventListener("DOMContentLoaded", initSystemListeners);
+  </script>
+</body>
+</html>
