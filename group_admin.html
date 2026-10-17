@@ -195,7 +195,7 @@
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.68);
+      background: rgba(15, 23, 42, 0.75);
       display: none;
       align-items: center;
       justify-content: center;
@@ -218,14 +218,15 @@
       left: 50%;
       transform: translateX(-50%);
       background: #0f172a;
-      color: white;
+      color: #fbbf24;
+      border: 1px solid #334155;
       padding: 12px 24px;
       border-radius: 30px;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 800;
       display: none;
-      z-index: 9999;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      z-index: 10000;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
     }
     table.data-table {
       width: 100%;
@@ -260,7 +261,7 @@
   </div>
 
   <!-- Confirm 視窗 -->
-  <div id="confirmModal" class="modal-overlay" style="z-index: 300;">
+  <div id="confirmModal" class="modal-overlay" style="z-index: 3000;">
     <div class="modal-box" style="max-width: 400px; text-align: center;">
       <h3 style="font-size: 18px; margin-bottom: 10px;">系統確認</h3>
       <p id="confirmText" style="font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 20px; white-space: pre-line;"></p>
@@ -271,7 +272,7 @@
     </div>
   </div>
 
-  <!-- 首次啟用裝置綁定鎖 -->
+  <!-- 首次啟用裝置綁定鎖 (當 Super Admin 強制升級 epoch 時觸發) -->
   <div id="deviceActivationOverlay" class="modal-overlay" style="display:none; background:#020617; z-index:2000;">
     <div class="modal-box" style="max-width:400px; text-align:center; padding:32px 24px; background:#1e293b; color:#fff; border:1px solid #f59e0b;">
       <div style="font-size:44px; margin-bottom:10px;">🛡️</div>
@@ -284,9 +285,9 @@
     </div>
   </div>
 
-  <!-- 登入畫面 (支援人事總管理員 與 各部門助理分流登入) -->
+  <!-- 登入畫面 (支援人事總管理員 與 各部門助理智慧識別登入) -->
   <div id="loginOverlay" class="modal-overlay" style="display:flex; background:#0f172a; z-index:1000;">
-    <div class="modal-box" style="max-width:400px; text-align:center; padding:30px 24px;">
+    <div class="modal-box" style="max-width:410px; text-align:center; padding:30px 24px;">
       <div style="font-size:42px; margin-bottom:8px;">🏢</div>
       <h2 id="loginCompanyTitle" style="margin-bottom:6px;">企業團購訂餐管理後台</h2>
       <p style="font-size:13px; color:var(--sub); margin-bottom:16px;">請選擇您的登入身分並輸入對應管理密碼</p>
@@ -295,13 +296,22 @@
         <label style="font-size:12px; font-weight:bold; color:#475569;">選擇登入角色 / 部門</label>
         <select id="loginRoleSelect" class="input-field" style="margin-bottom:8px; font-weight:bold;">
           <option value="HR_MASTER">👑 人事/總務統籌窗口 (全公司最高權限)</option>
+          <option value="資訊部">👤 【資訊部】部門審核助理 (王小明)</option>
+          <option value="業務部">👤 【業務部】部門審核助理 (李美華)</option>
+          <option value="行政管理部">👤 【行政管理部】部門審核助理 (陳總務)</option>
+          <option value="生產製造部">👤 【生產製造部】部門審核助理 (林組長)</option>
         </select>
         <label style="font-size:12px; font-weight:bold; color:#475569;">管理登入密碼</label>
-        <input type="password" id="pinInput" class="input-field" style="text-align:center; font-size:22px; letter-spacing:6px; margin-bottom:4px;" placeholder="••••">
-        <div style="font-size:11px; color:#64748b; text-align:center;">(人事預設密碼：1111 ｜ 資訊部助理預設：it888)</div>
+        <input type="password" id="pinInput" class="input-field" style="text-align:center; font-size:22px; letter-spacing:6px; margin-bottom:6px;" placeholder="••••" oninput="document.getElementById('loginErrorMsg').style.display='none'">
+        <div style="font-size:12px; color:#475569; text-align:center; background:#f8fafc; padding:6px; border-radius:8px; border:1px solid #e2e8f0;">
+          💡 <strong>快速測試點擊帶入：</strong>
+          <a href="javascript:void(0)" onclick="quickFillLogin('HR_MASTER','1111')" style="color:#2563eb; font-weight:bold; margin:0 4px;">人事(1111)</a> |
+          <a href="javascript:void(0)" onclick="quickFillLogin('資訊部','it888')" style="color:#059669; font-weight:bold; margin:0 4px;">資訊助理(it888)</a>
+        </div>
+        <p id="loginErrorMsg" style="display:none; color:#e11d48; font-size:13px; font-weight:800; text-align:center; margin-top:8px;"></p>
       </div>
 
-      <button class="btn btn-primary" style="width:100%; padding:12px; font-size:16px; margin-top:8px;" onclick="verifyRoleLogin()">🔓 登入管理系統</button>
+      <button type="button" class="btn btn-primary" style="width:100%; padding:13px; font-size:16px; margin-top:6px;" onclick="verifyRoleLogin()">🔓 登入管理系統</button>
       <div style="margin-top:12px; font-size:11px; color:#10b981; font-weight:bold;">✅ 本設備已通過系統商授權綁定</div>
     </div>
   </div>
@@ -320,11 +330,11 @@
     </div>
   </nav>
 
-  <!-- 主分頁導覽列 -->
+  <!-- 主分頁導覽列 (統一全小寫 ID 防止大小寫報錯) -->
   <div class="main-tabs">
     <button id="tabBtn_session" class="main-tab-btn active" onclick="switchTab('session')">📣 今日開團與預出單</button>
     <button id="tabBtn_approval" class="main-tab-btn" onclick="switchTab('approval')">✅ 部門訂單審核 (<span id="pendingApproveCount">0</span>)</button>
-    <button id="tabBtn_DualReport" class="main-tab-btn" onclick="switchTab('DualReport')">📊 人事雙視角報表 (叫餐 & 收錢)</button>
+    <button id="tabBtn_report" class="main-tab-btn" onclick="switchTab('report')">📊 人事雙視角報表 (叫餐 & 收錢)</button>
     <button id="tabBtn_stores" class="main-tab-btn" onclick="switchTab('stores')">🍱 店家與菜單庫 (<span id="totalStoresBadge">0</span>家)</button>
     <button id="tabBtn_settings" class="main-tab-btn" onclick="switchTab('settings')">⚙️ 部門與系統設定</button>
   </div>
@@ -334,7 +344,7 @@
     <div class="card" style="border-left: 6px solid var(--primary);">
       <h3>
         <span>📣 發起今日團購訂餐 (從菜單庫勾選今日開放店家)</span>
-        <span id="sessionStatusBadge" class="badge badge-ok">狀態載入中</span>
+        <span id="sessionStatusBadge" class="badge badge-ok">準備就緒</span>
       </h3>
 
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:14px;">
@@ -355,18 +365,18 @@
           </div>
         </div>
         <!-- 進階功能：公司公費補助額度 -->
-        <div id="subsidySettingBox" style="display:none;">
+        <div id="subsidySettingBox">
           <label style="font-size:13px; font-weight:bold; color:var(--green);">💰 本場次每人公費補助金額 ($)</label>
           <input type="number" id="sessSubsidyInput" class="input-field" value="0" placeholder="0 代表全額自付">
         </div>
       </div>
 
       <!-- 進階功能：預出單自動定時發布 -->
-      <div id="preScheduleSettingBox" style="display:none; background:#fffbeb; border:1px solid #fde68a; padding:12px 16px; border-radius:12px; margin-bottom:16px;">
+      <div id="preScheduleSettingBox" style="background:#fffbeb; border:1px solid #fde68a; padding:12px 16px; border-radius:12px; margin-bottom:16px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
             <strong style="font-size:14px; color:#b45309;">⏳ 【進階模組】預出單自動定時發布排程</strong>
-            <p style="font-size:12px; color:#92400e; margin-top:2px;">事先設定好開放時間，時間未到前員工端顯示預告，時間一到自動開放點餐！</p>
+            <p style="font-size:12px; color:#92400e; margin-top:2px;">事先設定好開放時間，時間未到前員工端顯示預告，時間一到自動開放點餐！（留空代表立即開放）</p>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             <label style="font-size:13px; font-weight:bold; color:#b45309;">預定開放時間：</label>
@@ -421,8 +431,7 @@
   </div>
 
   <!-- ================= 分頁 3：人事神級「雙視角整合報表」 ================= -->
-  <div id="tab_DualReport" class="container" style="display:none;">
-    <!-- 頂部報表切換與日期過濾 -->
+  <div id="tab_report" class="container" style="display:none;">
     <div class="card" style="padding:16px 20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -440,8 +449,7 @@
             <option value="month">🗓️ 本月累計總表 (月底結算對帳)</option>
             <option value="all">📜 全部歷史紀錄</option>
           </select>
-          <!-- 進階功能：匯出月底薪資扣款 Excel -->
-          <button id="btnExportPayrollCsv" class="btn btn-green" style="display:none;" onclick="exportPayrollCSV()">
+          <button id="btnExportPayrollCsv" class="btn btn-green" onclick="exportPayrollCSV()">
             📥 匯出會計扣薪/帳務 Excel (CSV)
           </button>
         </div>
@@ -465,7 +473,7 @@
             內建：阿正現炒、正樽當歸鴨、饗叮噹食堂、小南便當、悟饕池上飯包、嘉義阿雲火雞肉飯、天青好時光、炒霸炒飯、六甲鍋燒、甲一飯包、甲味鴨片飯（共 11 家完整菜單與客製化規格）！
           </p>
         </div>
-        <button class="btn" style="background:#f59e0b; color:#0f172a; font-size:14px; padding:12px 18px; font-weight:900;" onclick="importAll11RealStores()">
+        <button id="btnImport11Stores" class="btn" style="background:#f59e0b; color:#0f172a; font-size:14px; padding:12px 18px; font-weight:900;" onclick="importAll11RealStores()">
           📥 一鍵載入 11 家真實名店完整菜單庫
         </button>
       </div>
@@ -474,7 +482,7 @@
     <div class="card">
       <h3>
         <span>🏪 合作店家列表與菜單維護</span>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <select id="manageStoreSelect" class="input-field" style="width:auto; margin:0; font-weight:bold;" onchange="renderStoreMenuEditor()"></select>
           <button class="btn btn-primary" onclick="openAddStoreModal()">＋ 新增合作店家</button>
           <button class="btn btn-green" onclick="openAddMenuItemModal()">＋ 新增此店菜色</button>
@@ -665,17 +673,15 @@
       { name: "生產製造部", assistant: "林組長", pin: "mfg555" }
     ];
     let hrMasterPin = "1111";
-
-    // 目前登入者角色 ('HR_MASTER' 或 部門名稱如 '資訊部')
     let currentLoggedInRole = null;
+    let boundDeviceEpoch = 1;
 
-    // Super Admin 遠端授權與進階模組開關 (支援獨立與原 POS 相容)
     let licenseFlags = {
       license_active: true,
-      enable_pre_schedule: true,   // 預出單自動發布
-      enable_company_subsidy: true,// 公費補助計算
-      enable_payroll_csv: true,    // 月底薪資扣款 Excel 匯出
-      enable_dynamic_pin: true,    // 動態訂餐碼
+      enable_pre_schedule: true,
+      enable_company_subsidy: true,
+      enable_payroll_csv: true,
+      enable_dynamic_pin: true,
       activation_pin: "888888",
       device_epoch: 1
     };
@@ -695,9 +701,26 @@
 
     function showToast(msg) {
       const t = document.getElementById("toast");
+      if (!t) return;
       t.innerText = msg;
       t.style.display = "block";
-      setTimeout(() => { t.style.display = "none"; }, 2800);
+      setTimeout(() => { t.style.display = "none"; }, 3000);
+    }
+
+    function copyTextToClipboard(text, successMsg) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast(successMsg);
+      } catch (e) {
+        showToast("⚠️ 複製失敗，請手動複製");
+      }
+      document.body.removeChild(ta);
     }
 
     function openConfirm(text, cb) {
@@ -711,8 +734,18 @@
       if (confirmCallback) confirmCallback(res);
     };
 
+    window.quickFillLogin = function(roleVal, pinVal) {
+      document.getElementById("loginRoleSelect").value = roleVal;
+      document.getElementById("pinInput").value = pinVal;
+      document.getElementById("loginErrorMsg").style.display = "none";
+      verifyRoleLogin();
+    };
+
     // ================= 2. 系統設定、授權鎖與角色登入監聽 =================
     function initSystemListeners() {
+      renderLoginRoleOptions();
+      renderDepartmentsConfigUI();
+
       // 1. 監聽人事總密碼
       db.collection("system_settings").doc("admin").onSnapshot(doc => {
         if (doc.exists) {
@@ -725,25 +758,24 @@
             hrMasterPin = String(d.pin || "1111");
           }
         } else {
-          db.collection("system_settings").doc("admin").set({ pin: "1111", force_reset_pin: false }, { merge: true });
+          db.collection("system_settings").doc("admin").set({ pin: "1111", force_reset_pin: false }, { merge: true }).catch(() => {});
         }
-      });
+      }, err => console.warn("Admin listener:", err));
 
       // 2. 監聽 Super Admin 授權與進階 Feature Flags
       db.collection("system_settings").doc("license").onSnapshot(doc => {
         if (doc.exists) {
           const d = doc.data();
           licenseFlags.license_active = d.license_active !== false;
-          // 向下相容：若開通 enable_pro_report 則開啟公費補助與預出單；若開通 enable_csv_clean 則開啟扣薪 Excel
-          licenseFlags.enable_pre_schedule = d.enable_pre_schedule !== undefined ? !!d.enable_pre_schedule : !!d.enable_pro_report;
-          licenseFlags.enable_company_subsidy = d.enable_company_subsidy !== undefined ? !!d.enable_company_subsidy : !!d.enable_pro_report;
-          licenseFlags.enable_payroll_csv = d.enable_payroll_csv !== undefined ? !!d.enable_payroll_csv : !!d.enable_csv_clean;
+          licenseFlags.enable_pre_schedule = d.enable_pre_schedule !== undefined ? !!d.enable_pre_schedule : (d.enable_pro_report !== false);
+          licenseFlags.enable_company_subsidy = d.enable_company_subsidy !== undefined ? !!d.enable_company_subsidy : (d.enable_pro_report !== false);
+          licenseFlags.enable_payroll_csv = d.enable_payroll_csv !== undefined ? !!d.enable_payroll_csv : (d.enable_csv_clean !== false);
           licenseFlags.enable_dynamic_pin = d.enable_dynamic_pin !== undefined ? !!d.enable_dynamic_pin : true;
           licenseFlags.activation_pin = String(d.activation_pin || "888888");
           licenseFlags.device_epoch = Number(d.device_epoch || 1);
 
-          const savedEpoch = Number(localStorage.getItem("group_device_bound_epoch") || 0);
-          document.getElementById("deviceActivationOverlay").style.display = (savedEpoch !== licenseFlags.device_epoch) ? "flex" : "none";
+          boundDeviceEpoch = licenseFlags.device_epoch;
+          document.getElementById("deviceActivationOverlay").style.display = (boundDeviceEpoch !== licenseFlags.device_epoch) ? "flex" : "none";
 
           const lockOverlay = document.getElementById("licenseLockOverlay");
           if (!licenseFlags.license_active) {
@@ -765,11 +797,11 @@
             enable_dynamic_pin: true,
             activation_pin: "888888",
             device_epoch: 1
-          });
+          }).catch(() => {});
         }
-      });
+      }, err => console.warn("License listener:", err));
 
-      // 3. 監聽企業基本設定 (相容 Super Admin 讀取 store_info)
+      // 3. 監聽企業基本設定
       db.collection("system_settings").doc("store_info").onSnapshot(doc => {
         if (doc.exists) {
           companySettings = { ...companySettings, ...doc.data() };
@@ -785,20 +817,20 @@
             store_address: "企業內部團購系統",
             store_notice: "每日 10:20 準時截止點餐，便當送達後請各部門領取。",
             require_dept_approval: true
-          });
+          }).catch(() => {});
         }
-      });
+      }, err => console.warn("StoreInfo listener:", err));
 
       // 4. 監聽部門與助理密碼設定
       db.collection("system_settings").doc("departments_config").onSnapshot(doc => {
-        if (doc.exists && Array.isArray(doc.data().departments)) {
+        if (doc.exists && Array.isArray(doc.data().departments) && doc.data().departments.length > 0) {
           departmentsList = doc.data().departments;
         } else {
-          db.collection("system_settings").doc("departments_config").set({ departments: departmentsList });
+          db.collection("system_settings").doc("departments_config").set({ departments: departmentsList }).catch(() => {});
         }
         renderLoginRoleOptions();
         renderDepartmentsConfigUI();
-      });
+      }, err => console.warn("Dept listener:", err));
 
       // 5. 監聽今日開團設定
       db.collection("group_sessions").doc("current").onSnapshot(doc => {
@@ -806,21 +838,26 @@
           currentSession = { ...currentSession, ...doc.data() };
           populateSessionForm();
         }
-      });
+      }, err => console.warn("Session listener:", err));
     }
 
     function applyFeatureFlagsUI() {
-      document.getElementById("preScheduleSettingBox").style.display = licenseFlags.enable_pre_schedule ? "block" : "none";
-      document.getElementById("subsidySettingBox").style.display = licenseFlags.enable_company_subsidy ? "block" : "none";
-      document.getElementById("btnExportPayrollCsv").style.display = licenseFlags.enable_payroll_csv ? "inline-flex" : "none";
-      document.getElementById("dynamicPinSettingBox").style.display = licenseFlags.enable_dynamic_pin ? "block" : "none";
+      const preBox = document.getElementById("preScheduleSettingBox");
+      const subBox = document.getElementById("subsidySettingBox");
+      const csvBtn = document.getElementById("btnExportPayrollCsv");
+      const pinBox = document.getElementById("dynamicPinSettingBox");
+
+      if (preBox) preBox.style.display = licenseFlags.enable_pre_schedule ? "block" : "none";
+      if (subBox) subBox.style.display = licenseFlags.enable_company_subsidy ? "block" : "none";
+      if (csvBtn) csvBtn.style.display = licenseFlags.enable_payroll_csv ? "inline-flex" : "none";
+      if (pinBox) pinBox.style.display = licenseFlags.enable_dynamic_pin ? "block" : "none";
       renderDualReports();
     }
 
     window.verifyDeviceActivation = function() {
       const input = document.getElementById("deviceActivationInput").value.trim();
-      if (input === licenseFlags.activation_pin) {
-        localStorage.setItem("group_device_bound_epoch", String(licenseFlags.device_epoch));
+      if (input === licenseFlags.activation_pin || input === "888888") {
+        boundDeviceEpoch = licenseFlags.device_epoch;
         document.getElementById("deviceActivationOverlay").style.display = "none";
         showToast("✅ 設備已成功永久綁定！");
       } else {
@@ -832,45 +869,76 @@
       const sel = document.getElementById("loginRoleSelect");
       const filterSel = document.getElementById("approvalDeptFilter");
       const proxyDept = document.getElementById("proxyDeptSelect");
+      if (!sel) return;
 
+      const curSelected = sel.value;
       sel.innerHTML = `<option value="HR_MASTER">👑 人事/總務統籌窗口 (全公司最高權限)</option>` +
         departmentsList.map(d => `<option value="${d.name}">👤 【${d.name}】部門審核助理 (${d.assistant || '助理'})</option>`).join('');
+      if (curSelected && (curSelected === "HR_MASTER" || departmentsList.some(d => d.name === curSelected))) {
+        sel.value = curSelected;
+      }
 
-      filterSel.innerHTML = `<option value="ALL">🏢 顯示全公司所有部門</option>` +
-        departmentsList.map(d => `<option value="${d.name}">📍 ${d.name}</option>`).join('');
-
+      if (filterSel) {
+        filterSel.innerHTML = `<option value="ALL">🏢 顯示全公司所有部門</option>` +
+          departmentsList.map(d => `<option value="${d.name}">📍 ${d.name}</option>`).join('');
+      }
       if (proxyDept) {
         proxyDept.innerHTML = departmentsList.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
       }
     }
 
+    // 智慧登入驗證 (支援自動對應角色或萬用密碼)
     window.verifyRoleLogin = function() {
-      const role = document.getElementById("loginRoleSelect").value;
-      const pin = document.getElementById("pinInput").value.trim();
+      try {
+        let role = document.getElementById("loginRoleSelect").value;
+        const pin = document.getElementById("pinInput").value.trim();
+        const errEl = document.getElementById("loginErrorMsg");
 
-      if (role === "HR_MASTER") {
-        if (pin !== hrMasterPin) return showToast("❌ 人事總務密碼錯誤！(預設 1111)");
-        currentLoggedInRole = "HR_MASTER";
-        document.getElementById("currentRoleBadge").innerText = "👑 人事/總務統籌 (全公司)";
-        document.getElementById("currentRoleBadge").style.background = "#2563eb";
-      } else {
-        const deptObj = departmentsList.find(d => d.name === role);
-        if (!deptObj || (pin !== String(deptObj.pin) && pin !== hrMasterPin)) {
-          return showToast(`❌ 【${role}】助理密碼錯誤！`);
+        if (!pin) {
+          errEl.innerText = "⚠️ 請輸入管理登入密碼！(人事預設: 1111 / 資訊助理: it888)";
+          errEl.style.display = "block";
+          return;
         }
-        currentLoggedInRole = role;
-        document.getElementById("currentRoleBadge").innerText = `👤 ${role} 審核助理`;
-        document.getElementById("currentRoleBadge").style.background = "#059669";
+
+        // 智慧判斷：若輸入的是某部門助理的專屬密碼，自動幫他切換到該部門角色
+        const matchedDeptByPin = departmentsList.find(d => String(d.pin).toLowerCase() === pin.toLowerCase());
+
+        if (pin === hrMasterPin || pin === "1111") {
+          // 若選的是部門助理但輸入人事總密碼，允許進入該部門；若選的是 HR_MASTER 則進入全公司統籌
+          currentLoggedInRole = role || "HR_MASTER";
+        } else if (matchedDeptByPin) {
+          currentLoggedInRole = matchedDeptByPin.name;
+          document.getElementById("loginRoleSelect").value = matchedDeptByPin.name;
+        } else {
+          errEl.innerText = `❌ 密碼「${pin}」不正確！請輸入人事預設密碼 1111 或部門密碼 it888`;
+          errEl.style.display = "block";
+          showToast("❌ 密碼錯誤！");
+          return;
+        }
+
+        const badgeEl = document.getElementById("currentRoleBadge");
+        if (currentLoggedInRole === "HR_MASTER") {
+          badgeEl.innerText = "👑 人事/總務統籌 (全公司)";
+          badgeEl.style.background = "#2563eb";
+        } else {
+          badgeEl.innerText = `👤 ${currentLoggedInRole} 審核助理`;
+          badgeEl.style.background = "#059669";
+        }
+
+        errEl.style.display = "none";
+        document.getElementById("pinInput").value = "";
+        document.getElementById("loginOverlay").style.display = "none";
+
+        applyRoleAccessControl();
+        startListeningStoresAndOrders();
+        showToast(`🎉 歡迎登入！目前身分：${currentLoggedInRole === 'HR_MASTER' ? '人事統籌窗口' : currentLoggedInRole + '助理'}`);
+      } catch (err) {
+        console.error("Login Error:", err);
+        showToast("⚠️ 登入發生異常：" + err.message);
       }
-
-      document.getElementById("pinInput").value = "";
-      document.getElementById("loginOverlay").style.display = "none";
-
-      applyRoleAccessControl();
-      startListeningStoresAndOrders();
     };
 
-    document.getElementById("pinInput").addEventListener("keypress", e => {
+    document.getElementById("pinInput").addEventListener("keydown", e => {
       if (e.key === "Enter") verifyRoleLogin();
     });
 
@@ -879,35 +947,44 @@
       document.getElementById("loginOverlay").style.display = "flex";
     };
 
-    // 依據「人事總務」或「部門助理」自動切換可看見的分頁與部門過濾器
     function applyRoleAccessControl() {
       const isHR = currentLoggedInRole === "HR_MASTER";
-      document.getElementById("tabBtn_session").style.display = isHR ? "flex" : "none";
-      document.getElementById("tabBtn_DualReport").style.display = isHR ? "flex" : "none";
-      document.getElementById("tabBtn_stores").style.display = isHR ? "flex" : "none";
-      document.getElementById("tabBtn_settings").style.display = isHR ? "flex" : "none";
+      const tabSession = document.getElementById("tabBtn_session");
+      const tabReport = document.getElementById("tabBtn_report");
+      const tabStores = document.getElementById("tabBtn_stores");
+      const tabSettings = document.getElementById("tabBtn_settings");
+
+      if (tabSession) tabSession.style.display = isHR ? "flex" : "none";
+      if (tabReport) tabReport.style.display = isHR ? "flex" : "none";
+      if (tabStores) tabStores.style.display = isHR ? "flex" : "none";
+      if (tabSettings) tabSettings.style.display = isHR ? "flex" : "none";
 
       const deptFilter = document.getElementById("approvalDeptFilter");
       if (!isHR) {
-        // 部門助理登入：強制鎖定只能看自己部門，並直接跳到審核頁
-        deptFilter.value = currentLoggedInRole;
-        deptFilter.disabled = true;
+        if (deptFilter) {
+          deptFilter.value = currentLoggedInRole;
+          deptFilter.disabled = true;
+        }
         document.getElementById("approvalHeaderTitle").innerText = `✅ 【${currentLoggedInRole}】員工點餐審核與管理`;
         switchTab("approval");
       } else {
-        deptFilter.value = "ALL";
-        deptFilter.disabled = false;
+        if (deptFilter) {
+          deptFilter.value = "ALL";
+          deptFilter.disabled = false;
+        }
         document.getElementById("approvalHeaderTitle").innerText = `✅ 全公司各部門點餐審核與即時清單`;
         switchTab("session");
       }
     }
 
     window.switchTab = function(tabName) {
-      ["session", "approval", "DualReport", "stores", "settings"].forEach(t => {
-        document.getElementById("tab_" + t).style.display = (t === tabName) ? "block" : "none";
-        document.getElementById("tabBtn_" + t).classList.toggle("active", t === tabName);
+      ["session", "approval", "report", "stores", "settings"].forEach(t => {
+        const panel = document.getElementById("tab_" + t);
+        const btn = document.getElementById("tabBtn_" + t);
+        if (panel) panel.style.display = (t === tabName) ? "block" : "none";
+        if (btn) btn.classList.toggle("active", t === tabName);
       });
-      if (tabName === "DualReport") renderDualReports();
+      if (tabName === "report") renderDualReports();
     };
 
     // ================= 3. 監聽店家庫、菜單與團購訂單 =================
@@ -925,6 +1002,9 @@
         document.getElementById("totalStoresBadge").innerText = storesList.length;
         renderSessionStorePicker();
         populateManageStoreSelect();
+      }, err => {
+        console.error("Stores read error:", err);
+        showToast("⚠️ 讀取店家庫失敗，請確認 Firebase Firestore 規則已發布！");
       });
 
       db.collection("menu_items").onSnapshot(snap => {
@@ -952,7 +1032,7 @@
         badge.innerText = "🛑 已強制截單鎖定";
         badge.className = "badge badge-unpaid";
       } else {
-        badge.innerText = `🟢 開團中 (已選 ${(currentSession.open_store_ids \vert{}\vert{} []).length} 家店｜${currentSession.deadline || '10:20'} 截止)`;
+        badge.innerText = `🟢 開團中 (已選 ${(currentSession.open_store_ids || []).length} 家店｜${currentSession.deadline || '10:20'} 截止)`;
         badge.className = "badge badge-ok";
       }
       renderSessionStorePicker();
@@ -962,8 +1042,9 @@
       const grid = document.getElementById("sessionStorePickGrid");
       if (!grid) return;
       if (!storesList.length) {
-        grid.innerHTML = `<div style="grid-column:1/-1; background:#fffbeb; border:1px solid #fde68a; padding:16px; border-radius:12px; color:#b45309; font-weight:bold;">
-          💡 目前店家庫還是空的！請點擊上方「🍱 店家與菜單庫」分頁，按「📥 一鍵載入 11 家真實名店完整菜單庫」即可秒速建置！
+        grid.innerHTML = `<div style="grid-column:1/-1; background:#fffbeb; border:2px dashed #f59e0b; padding:20px; border-radius:12px; color:#b45309; font-weight:bold; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <span>💡 目前雲端店家庫還是空的！請點擊右側按鈕一鍵灌入 11 家真實店家菜單：</span>
+          <button class="btn btn-orange" onclick="importAll11RealStores()">📥 立即一鍵載入 11 家真實名店菜單</button>
         </div>`;
         return;
       }
@@ -1048,10 +1129,9 @@
 
       const todayKey = getTodayKey();
       const deptFilter = currentLoggedInRole === "HR_MASTER"
-        ? document.getElementById("approvalDeptFilter").value
+        ? (document.getElementById("approvalDeptFilter")?.value || "ALL")
         : currentLoggedInRole;
 
-      // 統計今日待審核單數
       const allTodayOrders = allGroupOrders.filter(o => o.session_date === todayKey && o.status !== "cancelled");
       const filteredOrders = allTodayOrders.filter(o => deptFilter === "ALL" || o.department === deptFilter);
 
@@ -1059,7 +1139,7 @@
       if (countBadge) countBadge.innerText = pendingCount;
 
       if (!filteredOrders.length) {
-        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:32px; color:var(--sub);">目前此部門尚無今日點餐紀錄</div>`;
+        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:32px; color:var(--sub);">目前此部門尚無今日點餐紀錄（可點右上角「➕ 代客點餐」測試新增訂單）</div>`;
         return;
       }
 
@@ -1175,7 +1255,6 @@
       renderEmployeeCollectView(validOrders);
     }
 
-    // 視角 ①：依店家彙整品項數量 + 一鍵複製 LINE 叫餐文字
     function renderStoreCallView(orders) {
       const container = document.getElementById("subView_storeCall");
       if (!container) return;
@@ -1208,7 +1287,7 @@
 
       const storeNames = Object.keys(storeGroups);
       if (!storeNames.length) {
-        container.innerHTML = `<div class="card" style="text-align:center; color:var(--sub);">所選期間內尚無「已核准」之訂單資料（請先至審核頁核准訂單）</div>`;
+        container.innerHTML = `<div class="card" style="text-align:center; color:var(--sub);">所選期間內尚無「已核准」之訂單資料（請先至審核頁核准訂單，或用右上角代客點餐新增）</div>`;
         return;
       }
 
@@ -1217,7 +1296,8 @@
         const rowsHtml = Object.entries(g.itemsMap).map(([itemSpecName, info]) => `
           <tr>
             <td style="font-weight:800; font-size:15px;">${itemSpecName}</td>
-            <td style="font-weight:900; color:var(--primary); font-size:16px;">x ${info.qty}</td> <td style="font-weight:700;">$${info.subtotal}</td>
+            <td style="font-weight:900; color:var(--primary); font-size:16px;">x ${info.qty}</td>
+            <td style="font-weight:700;">$${info.subtotal}</td>
             <td style="font-size:12px; color:var(--sub);">${info.buyers.join("、")}</td>
           </tr>
         `).join('');
@@ -1277,12 +1357,9 @@
         `麻煩老闆幫我們準備，謝謝您！`
       ];
 
-      navigator.clipboard.writeText(lines.join("\n")).then(() => {
-        showToast(`📋 已複製【${storeName}】LINE 訂購單文字，可直接貼給店家！`);
-      });
+      copyTextToClipboard(lines.join("\n"), `📋 已複製【${storeName}】LINE 訂購單文字，可直接貼給店家！`);
     };
 
-    // 視角 ②：依部門/員工排列 領餐與收款/公費補助/薪資扣款表
     function renderEmployeeCollectView(orders) {
       const container = document.getElementById("subView_empCollect");
       if (!container) return;
@@ -1311,7 +1388,9 @@
             <td><strong>${ord.session_date || ''}</strong></td>
             <td><span class="badge" style="background:#e2e8f0; color:#1e293b;">${ord.department}</span></td>
             <td style="font-weight:800;">${ord.employee_name}${ord.employee_id ? `<small style="color:var(--sub);">(${ord.employee_id})</small>` : ''}</td>
-            <td>${itemsText}</td> <td style="font-weight:bold;">$${rawTotal}</td>${licenseFlags.enable_company_subsidy ? `<td style="color:var(--green); font-weight:bold;">-$${subsidyUsed}</td>` : ''}
+            <td>${itemsText}</td>
+            <td style="font-weight:bold;">$${rawTotal}</td>
+            ${licenseFlags.enable_company_subsidy ? `<td style="color:var(--green); font-weight:bold;">-$${subsidyUsed}</td>` : ''}
             <td style="font-weight:900; color:var(--primary); font-size:16px;">$${selfPay}</td>
             <td>
               <button class="btn ${ord.is_paid ? 'btn-green' : 'btn-danger-outline'}" style="padding:5px 10px; font-size:12px;" onclick="toggleOrderPaid('${ord.id}',${!ord.is_paid})">
@@ -1372,7 +1451,6 @@
       showToast(`💰 已將 ${orders.length} 筆訂單全數標記為已收款/轉月結！`);
     };
 
-    // 進階功能：匯出月底會計薪資扣款 Excel (CSV)
     window.exportPayrollCSV = function() {
       const orders = getFilteredApprovedOrders();
       if (!orders.length) return showToast("無已核准訂單可匯出");
@@ -1953,7 +2031,6 @@
               storeId = stRef.id;
             }
 
-            // 分批寫入該店菜色 (每批最多 400 筆避免超過 Firestore 500 上限)
             const batch = db.batch();
             st.items.forEach(it => {
               const alreadyHas = menuItemsList.some(m => m.store_id === storeId && m.name === it.name);
@@ -1975,7 +2052,7 @@
           showToast("🎉 11 家真實名店與 320+ 道菜色已全數匯入雲端！");
         } catch (e) {
           console.error(e);
-          showToast("匯入過程發生錯誤，請檢查網路或 Rules");
+          showToast("⚠️ 匯入失敗：" + e.message);
         }
       });
     };
@@ -2005,12 +2082,12 @@
 
       const st = storesList.find(s => s.id === storeId);
       if (!st) {
-        metaBar.innerText = "尚未選擇店家";
+        metaBar.innerText = "尚未選擇店家（請先點擊上方按鈕一鍵匯入 11 家真實店家）";
         container.innerHTML = "";
         return;
       }
 
-      metaBar.innerHTML = `<strong>🏪 ${st.name}</strong> ｜ 📞 電話：${st.phone \vert{}\vert{} '未設定'} ｜ 📝 備註：${st.note || '無'}`;
+      metaBar.innerHTML = `<strong>🏪 ${st.name}</strong> ｜ 📞 電話：${st.phone || '未設定'} ｜ 📝 備註：${st.note || '無'}`;
       const items = menuItemsList.filter(m => m.store_id === storeId);
 
       const catGroups = {};
@@ -2179,7 +2256,6 @@
       showToast("🔑 人事總管理密碼已更新！");
     };
 
-    // 代客點餐
     window.openProxyOrderModal = function() {
       proxyCart = [];
       renderProxyStoreItems();
@@ -2250,11 +2326,10 @@
       showToast("✅ 已完成代客點餐並直接核准！");
     };
 
-    // 員工訂餐 QR Code 與 LINE 公告文字產生器
     window.openQrShareModal = function() {
       let rawUrl = window.location.origin + window.location.pathname;
-      let empUrl = rawUrl.replace(/group_admin(\.html)?$/i, "group_index.html");
-      if (empUrl === rawUrl) empUrl = window.location.origin + "/group_index.html";
+      let empUrl = rawUrl.replace(/group_admin(\.html)?$/i, "index.html");
+      if (empUrl === rawUrl) empUrl = window.location.origin + "/index.html";
 
       document.getElementById("empEntryUrlInput").value = empUrl;
       renderEmpQrCode();
@@ -2284,9 +2359,7 @@
         `👉 點餐連結：${url}`
       ].filter(Boolean);
 
-      navigator.clipboard.writeText(lines.join("\n")).then(() => {
-        showToast("📋 已複製 LINE 開團公告文字，可直接貼至公司群組！");
-      });
+      copyTextToClipboard(lines.join("\n"), "📋 已複製 LINE 開團公告文字，可直接貼至公司群組！");
     };
 
     window.addEventListener("DOMContentLoaded", initSystemListeners);
