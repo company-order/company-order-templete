@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🏢 企業員工團購訂餐管理後台 (訂餐統籌窗口 & 部門助理審核)</title>
+  <title>🏢 企業員工團購訂餐管理後台 v2.5.0</title>
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- 🌟 引入同目錄下的獨立 firebaseConfig.js 設定檔 -->
-  <script src="firebaseConfig.js"></script>
+  <script src="firebaseConfig.js" onerror="console.info('Using fallback firebaseConfig')"></script>
   <style>
     :root {
       --primary: #1e40af;
@@ -291,7 +291,10 @@
   <div id="loginOverlay" class="modal-overlay" style="display:flex; background:#0f172a; z-index:1000;">
     <div class="modal-box" style="max-width:410px; text-align:center; padding:30px 24px;">
       <div style="font-size:42px; margin-bottom:8px;">🏢</div>
-      <h2 id="loginCompanyTitle" style="margin-bottom:6px;">企業團購訂餐管理後台</h2>
+      <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:6px;">
+        <h2 id="loginCompanyTitle" style="margin:0;">企業團購訂餐管理後台</h2>
+        <span style="background:#1e293b; color:#38bdf8; font-family:monospace; font-size:12px; font-weight:900; padding:2px 8px; border-radius:6px;">v2.5.0</span>
+      </div>
       <p style="font-size:13px; color:var(--sub); margin-bottom:16px;">請選擇您的登入身分並輸入對應管理密碼</p>
 
       <div style="text-align:left; margin-bottom:10px;">
@@ -318,6 +321,7 @@
     <div class="nav-brand">
       <span>🏢</span>
       <span id="navCompanyName">企業員工團購訂餐系統</span>
+      <span style="background:#334155; color:#fbbf24; font-family:monospace; font-size:12px; font-weight:900; padding:2px 8px; border-radius:6px; border:1px solid #475569;">v2.5.0</span>
       <span id="currentRoleBadge" class="role-badge">訂餐統籌窗口</span>
     </div>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -695,10 +699,19 @@
   </div>
 
   <script>
+    window.addEventListener("unhandledrejection", function(e) {
+      if (e && e.reason) {
+        const msg = String(e.reason.message || e.reason);
+        if (msg.includes("Firestore") || msg.includes("firebase") || msg.includes("Failed to fetch")) {
+          e.preventDefault();
+        }
+      }
+    });
+
     const _origConsoleError = console.error;
     console.error = function(...args) {
       const msg = args.map(a => String(a)).join(" ");
-      if (msg.includes("@firebase/firestore") || msg.includes("Could not reach Cloud Firestore")) return;
+      if (msg.includes("@firebase/firestore") || msg.includes("Could not reach Cloud Firestore") || msg.includes("firebaseConfig.js")) return;
       _origConsoleError.apply(console, args);
     };
 
@@ -804,6 +817,29 @@
       return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
 
+    // 🌟 第 4 點：預設截止時間自動設為「目前建立時間 + 2 小時」
+    function getDefaultDeadlinePlus2Hours() {
+      const d = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    // 🌟 統一清理場次標題（自動去掉多餘的日期前綴，保持視覺工整一致）
+    function formatCleanSessionTitle(rawTitle) {
+      const cleaned = String(rawTitle || "午餐團購").replace(/^\d{4}-\d{2}-\d{2}\s*/, "").trim();
+      return cleaned || "午餐團購";
+    }
+
+    // 檢查單一時間字串 (HH:mm) 是否早於目前當下時間
+    function isTimeEarlierThanNow(timeStr) {
+      if (!timeStr) return true;
+      const [dh, dm] = String(timeStr).split(":").map(Number);
+      if (isNaN(dh) || isNaN(dm)) return false;
+      const now = new Date();
+      const target = new Date();
+      target.setHours(dh, dm, 59, 999);
+      return target < now;
+    }
+
     function isDateInCurrentWeek(dateStr) {
       if (!dateStr) return false;
       const target = new Date(dateStr + "T00:00:00");
@@ -895,11 +931,11 @@
       return { rawTotal, subsidyUsed, selfPay, treatLabel };
     }
 
-    window.setQuickSessionTitle = function(suffix, defaultDeadline) {
+    window.setQuickSessionTitle = function(suffix) {
       const titleIn = document.getElementById("sessTitleInput");
       const deadIn = document.getElementById("sessDeadlineInput");
       if (titleIn) titleIn.value = suffix;
-      if (deadIn && defaultDeadline) deadIn.value = defaultDeadline;
+      if (deadIn) deadIn.value = getDefaultDeadlinePlus2Hours();
     };
 
     // 🌟 雙重鐵律檢核：必須是「今日 (date_key === todayKey)」且「尚未超過截止時間 (deadline)」且未手動關閉/未到餐
@@ -907,15 +943,7 @@
       if (!sess) return true;
       const todayKey = getTodayKey();
       if (sess.date_key !== todayKey) return true;
-      const deadlineStr = sess.deadline || "10:20";
-      const [dh, dm] = deadlineStr.split(":").map(Number);
-      if (!isNaN(dh) && !isNaN(dm)) {
-        const now = new Date();
-        const deadlineDate = new Date();
-        deadlineDate.setHours(dh, dm, 59, 999);
-        if (now > deadlineDate) return true;
-      }
-      return false;
+      return isTimeEarlierThanNow(sess.deadline || "10:20");
     }
 
     function isSessionCurrentlyOpenForOrdering(sess) {
@@ -926,13 +954,33 @@
       return true;
     }
 
-    // 🌟 嚴格過濾：後台「今日開團控制台」只顯示今日 (date_key === todayKey) 的場次，絕不顯示昨天或以前的舊場次！
+    // 🌟 第 3 點 & 第 8 點：嚴格過濾只取「今日 (date_key === todayKey)」場次，並依「截止時間由早到晚」自動排序編號！
     function getTodaySessionsList() {
       const todayKey = getTodayKey();
-      return allGroupSessions.filter(s => {
+      const list = allGroupSessions.filter(s => {
         if (s.id === "current" && allGroupSessions.length > 1) return false;
         return s.date_key === todayKey;
       });
+      list.sort((a, b) => {
+        const da = String(a.deadline || "23:59");
+        const dbTime = String(b.deadline || "23:59");
+        if (da !== dbTime) return da.localeCompare(dbTime);
+        const ta = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
+        const tb = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
+        return ta - tb;
+      });
+      return list;
+    }
+
+    // 取得某場次在今日排序中的固定場次編號 (例如：場次 1、場次 2)
+    function getSessionOrderBadgeLabel(sessionId) {
+      const todaySessions = getTodaySessionsList();
+      const idx = todaySessions.findIndex(s => s.id === sessionId);
+      if (idx >= 0) {
+        return `場次 ${idx + 1}：${formatCleanSessionTitle(todaySessions[idx].title)}`;
+      }
+      const found = allGroupSessions.find(s => s.id === sessionId);
+      return found ? formatCleanSessionTitle(found.title) : "預設場次";
     }
 
     function populateSessionFilterDropdowns() {
@@ -944,15 +992,15 @@
       if (appSel) {
         const prev = appSel.value;
         appSel.innerHTML = `<option value="ALL">📅 顯示今日所有開團場次 (${todaySessions.length}團)</option>` +
-          todaySessions.map(s => `<option value="${s.id}">🎯 ${s.title || '團購場次'} (${s.deadline || '10:20'}截止)</option>`).join('');
+          todaySessions.map((s, idx) => `<option value="${s.id}">🎯 [場次 ${idx + 1}] ${formatCleanSessionTitle(s.title)} (${s.deadline || '10:20'}截止)</option>`).join('');
         if (prev && (prev === "ALL" || todaySessions.some(s => s.id === prev))) appSel.value = prev;
       }
 
       if (repSel) {
         const prev = repSel.value;
         repSel.innerHTML = `<option value="ALL">📅 全部開團場次</option>` +
-          allGroupSessions.filter(s => s.id !== "current" || allGroupSessions.length === 1).map(s => `<option value="${s.id}">🎯 [${s.date_key || ''}] ${s.title || '團購場次'}</option>`).join('');
-        if (prev && (prev === "ALL" || allGroupSessions.some(s => s.id === prev))) repSel.value = prev;
+          todaySessions.map((s, idx) => `<option value="${s.id}">🎯 [場次 ${idx + 1}] ${formatCleanSessionTitle(s.title)} (${s.deadline || ''}截止)</option>`).join('');
+        if (prev && (prev === "ALL" || todaySessions.some(s => s.id === prev))) repSel.value = prev;
       }
 
       // 🌟 代客點餐下拉選單：僅列出「今日尚未截止且開放中」的場次！
@@ -960,7 +1008,10 @@
         const prevProxy = proxySel.value;
         const openNowSessions = todaySessions.filter(s => isSessionCurrentlyOpenForOrdering(s));
         if (openNowSessions.length > 0) {
-          proxySel.innerHTML = openNowSessions.map(s => `<option value="${s.id}">🟢 ${s.title} (${s.deadline || '10:20'}截止)</option>`).join('');
+          proxySel.innerHTML = openNowSessions.map(s => {
+            const sIdx = todaySessions.findIndex(ts => ts.id === s.id) + 1;
+            return `<option value="${s.id}">🟢 [場次 ${sIdx}] ${formatCleanSessionTitle(s.title)} (${s.deadline || '10:20'}截止)</option>`;
+          }).join('');
           if (prevProxy && openNowSessions.some(s => s.id === prevProxy)) {
             proxySel.value = prevProxy;
           }
@@ -979,8 +1030,8 @@
       if (!editId && titleIn && !titleIn.value) {
         titleIn.value = "午餐團購";
       }
-      if (!editId && deadIn && !deadIn.value) {
-        deadIn.value = "10:20";
+      if (!editId && deadIn && (!deadIn.value || deadIn.value === "10:20")) {
+        deadIn.value = getDefaultDeadlinePlus2Hours();
       }
 
       populateSessionFilterDropdowns();
@@ -991,7 +1042,7 @@
     window.resetSessionFormToNew = function() {
       document.getElementById("editingSessionIdInput").value = "";
       document.getElementById("sessTitleInput").value = "午餐團購";
-      document.getElementById("sessDeadlineInput").value = "10:20";
+      document.getElementById("sessDeadlineInput").value = getDefaultDeadlinePlus2Hours();
       document.getElementById("sessDynamicPinInput").value = "";
       document.getElementById("sessSubsidyInput").value = "0";
       const spIn = document.getElementById("sessTreatSponsorInput");
@@ -1012,25 +1063,26 @@
     window.loadSessionIntoEditor = function(sessId) {
       const sess = allGroupSessions.find(s => s.id === sessId);
       if (!sess) return;
+      const cleanTitle = formatCleanSessionTitle(sess.title);
       document.getElementById("editingSessionIdInput").value = sess.id;
-      document.getElementById("sessTitleInput").value = sess.title || "";
-      document.getElementById("sessDeadlineInput").value = sess.deadline || "10:20";
+      document.getElementById("sessTitleInput").value = cleanTitle;
+      document.getElementById("sessDeadlineInput").value = sess.deadline || getDefaultDeadlinePlus2Hours();
       document.getElementById("sessDynamicPinInput").value = sess.dynamic_pin || "";
       document.getElementById("sessSubsidyInput").value = sess.subsidy_limit || 0;
       const spIn = document.getElementById("sessTreatSponsorInput");
       if (spIn) spIn.value = sess.treat_sponsor || "";
       selectedStoreIdsForForm = [...(sess.open_store_ids || [])];
 
-      document.getElementById("formEditorHeaderTitle").innerText = `✏️ 正在編輯場次：【${sess.title}】`;
+      document.getElementById("formEditorHeaderTitle").innerText = `✏️ 正在編輯場次：【${cleanTitle}】`;
       const badge = document.getElementById("sessionStatusBadge");
       if (badge) {
         badge.innerText = "編輯既有場次模式";
         badge.className = "badge badge-paid";
       }
       document.getElementById("btnCancelEditSession").style.display = "inline-flex";
-      document.getElementById("btnPublishMainSession").innerText = `💾 儲存更新【${sess.title}】場次設定`;
+      document.getElementById("btnPublishMainSession").innerText = `💾 儲存更新【${cleanTitle}】場次設定`;
       renderSessionStorePicker();
-      showToast(`✏️ 已載入「${sess.title}」的店家設定至下方表單！`);
+      showToast(`✏️ 已載入「${cleanTitle}」的店家設定至下方表單！`);
     };
 
     function renderActiveSessionControlBar() {
@@ -1070,6 +1122,7 @@
 
       listContainer.innerHTML = todaySessions.map((sess, idx) => {
         const sId = sess.id;
+        const cleanTitle = formatCleanSessionTitle(sess.title);
         const openIds = sess.open_store_ids || [];
         const openStoreNames = storesList.filter(s => openIds.includes(s.id)).map(s => s.name);
         const sessOrders = todayValidOrders.filter(o => o.session_id === sId || (!o.session_id && idx === 0));
@@ -1086,7 +1139,7 @@
         if (sess.is_cancelled_session) {
           statusTag = `<span class="badge badge-unpaid">💥 已撤銷收回 (不計費)</span>`;
         } else if (sess.meals_arrived) {
-          statusTag = `<span class="badge badge-paid">🍱 已到餐結案</span>`;
+          statusTag = `<span class="badge badge-paid">🍱 全店已到餐結案</span>`;
         } else if (sess.is_manually_closed || openIds.length === 0) {
           statusTag = `<span class="badge badge-wait">🛑 已截停鎖單</span>`;
         } else if (expiredByTime) {
@@ -1099,7 +1152,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px dashed #e2e8f0;">
               <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <span style="background:#1e40af; color:white; font-size:12px; font-weight:900; padding:3px 8px; border-radius:6px;">場次 ${idx + 1}</span>
-                <strong style="font-size:16px; color:#0f172a;">${sess.title || '今日團購'}</strong>
+                <strong style="font-size:16px; color:#0f172a;">${cleanTitle}</strong>
                 ${statusTag}
                 ${(canPin && sess.dynamic_pin) ? `<span style="font-size:12px; background:#f3e8ff; color:#6d28d9; padding:2px 8px; border-radius:6px; font-weight:800;">🔐 驗證碼: ${sess.dynamic_pin}</span>` : ''}
                 ${(canSubsidy && sponsorStr) ? `<span style="font-size:12px; background:#fae8ff; color:#86198f; padding:2px 8px; border-radius:6px; font-weight:800;">🎁 請客/贊助: ${sponsorStr}</span>` : ''}
@@ -1172,6 +1225,9 @@
 
     window.quickUpdateSingleSessionMeta = async function(sId) {
       const newDeadline = document.getElementById(`qDead_${sId}`)?.value || "10:20";
+      if (isTimeEarlierThanNow(newDeadline)) {
+        return showToast(`⚠️ 截止點餐時間 (${newDeadline}) 不能早於目前的時間 (${getCurrentTimeHM()})！請重新調整。`);
+      }
       const updatePayload = {
         deadline: newDeadline,
         updated_at: firebase.firestore.FieldValue.serverTimestamp()
@@ -1194,13 +1250,25 @@
     window.toggleSingleSessionPauseState = async function(sId) {
       const sess = allGroupSessions.find(s => s.id === sId);
       if (!sess) return;
-      const currentlyPaused = sess.is_manually_closed || sess.is_cancelled_session || sess.meals_arrived;
+      const expiredByTime = isSessionExpiredByTime(sess);
+      const currentlyPaused = sess.is_manually_closed || sess.is_cancelled_session || sess.meals_arrived || expiredByTime;
       if (currentlyPaused) {
-        await db.collection("group_sessions").doc(sId).set({ is_manually_closed: false, is_cancelled_session: false, meals_arrived: false, arrived_store_names: [], updated_at: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        showToast(`🔓 已恢復開放【${sess.title}】！`);
+        let nextDeadline = sess.deadline || getDefaultDeadlinePlus2Hours();
+        if (isTimeEarlierThanNow(nextDeadline)) {
+          nextDeadline = getDefaultDeadlinePlus2Hours();
+        }
+        await db.collection("group_sessions").doc(sId).set({
+          is_manually_closed: false,
+          is_cancelled_session: false,
+          meals_arrived: false,
+          arrived_store_names: [],
+          deadline: nextDeadline,
+          updated_at: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        showToast(`🔓 已恢復開放【${formatCleanSessionTitle(sess.title)}】，截止時間已設為 ${nextDeadline}！`);
       } else {
         await db.collection("group_sessions").doc(sId).set({ is_manually_closed: true, updated_at: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        showToast(`🛑 已截停【${sess.title}】收單！`);
+        showToast(`🛑 已截停【${formatCleanSessionTitle(sess.title)}】收單！`);
       }
     };
 
@@ -1644,17 +1712,24 @@
 
     window.publishGroupSession = async function(isOpen) {
       if (isOpen && (!selectedStoreIdsForForm || !selectedStoreIdsForForm.length)) return showToast("⚠️ 請至少勾選 1 家開放店家！");
+      const inputDeadline = document.getElementById("sessDeadlineInput")?.value || getDefaultDeadlinePlus2Hours();
+      // 🌟 第 5 點：嚴格阻斷「截止時間早於目前時間」的無效開團！
+      if (isOpen && isTimeEarlierThanNow(inputDeadline)) {
+        return showToast(`⚠️ 無法發起開團：截止時間 (${inputDeadline}) 比現在時間 (${getCurrentTimeHM()}) 還要早！請將截止時間往後調整。`);
+      }
+
       const nowHM = getCurrentTimeHM();
       const subVal = licenseFlags.enable_company_subsidy ? Number(document.getElementById("sessSubsidyInput")?.value || 0) : 0;
       const sponsorVal = licenseFlags.enable_company_subsidy ? (document.getElementById("sessTreatSponsorInput")?.value || "").trim() : "";
       const dynPinVal = licenseFlags.enable_dynamic_pin ? (document.getElementById("sessDynamicPinInput")?.value.trim() || "") : "";
       const editId = document.getElementById("editingSessionIdInput")?.value;
       const targetDocRef = editId ? db.collection("group_sessions").doc(editId) : db.collection("group_sessions").doc("sess_" + Date.now());
+      const cleanTitle = formatCleanSessionTitle(document.getElementById("sessTitleInput")?.value.trim() || "午餐團購");
 
       const payload = {
         date_key: getTodayKey(),
-        title: document.getElementById("sessTitleInput")?.value.trim() || "午餐團購",
-        deadline: document.getElementById("sessDeadlineInput")?.value || "10:20",
+        title: cleanTitle,
+        deadline: inputDeadline,
         published_time_str: nowHM,
         dynamic_pin: dynPinVal,
         subsidy_limit: subVal,
@@ -1672,7 +1747,7 @@
 
       await targetDocRef.set(payload, { merge: true });
       resetSessionFormToNew();
-      showToast(editId ? `💾 已更新場次設定！` : `🚀 已成功發起新團購場次！`);
+      showToast(editId ? `💾 已更新場次【${cleanTitle}】設定！` : `🚀 已成功發起新團購場次【${cleanTitle}】！`);
     };
 
     function renderApprovalOrders() {
@@ -1811,16 +1886,29 @@
     };
 
     function updateArrivalBannerUI() {
-      const arrivedAll = !!currentSession.meals_arrived;
-      const arrivedStores = currentSession.arrived_store_names || [];
+      const todaySessions = getTodaySessionsList();
+      const anyFullArrived = todaySessions.length > 0 && todaySessions.every(s => s.meals_arrived);
+      const allArrivedStoreNames = [...new Set(todaySessions.flatMap(s => s.arrived_store_names || []))];
+
       const assistBanner = document.getElementById("assistantArrivalBanner");
       const statusBadge = document.getElementById("arrivalBroadcastStatusBadge");
       const btnAll = document.getElementById("btnTriggerAllArrived");
       const btnCancel = document.getElementById("btnCancelAllArrived");
 
-      if (arrivedAll || arrivedStores.length > 0) {
-        if (assistBanner) assistBanner.style.display = "block";
-        if (statusBadge) { statusBadge.innerText = arrivedAll ? `✅ 全數到齊` : `🍱 部分到齊`; statusBadge.className = "badge badge-ok"; }
+      if (anyFullArrived || allArrivedStoreNames.length > 0) {
+        if (assistBanner) {
+          assistBanner.style.display = "block";
+          const titleEl = document.getElementById("assistantArrivalTitle");
+          if (titleEl) {
+            titleEl.innerText = anyFullArrived
+              ? `🎉 總務窗口通知：今日所有團購店家餐點皆已送達公司！`
+              : `🎉 總務窗口通知：【${allArrivedStoreNames.join("、")}】餐點已送達公司！`;
+          }
+        }
+        if (statusBadge) {
+          statusBadge.innerText = anyFullArrived ? `✅ 全數店家皆已到齊` : `🍱 已到餐店家：${allArrivedStoreNames.join("、")}`;
+          statusBadge.className = "badge badge-ok";
+        }
         if (btnAll) btnAll.innerText = "📢 重新發送全數到齊通知";
         if (btnCancel) btnCancel.style.display = "inline-flex";
       } else {
@@ -1835,33 +1923,192 @@
       const nowHM = getCurrentTimeHM();
       const sessFilter = document.getElementById("reportSessionSelect")?.value || "ALL";
       const targetSessions = getTodaySessionsList().filter(s => sessFilter === "ALL" || s.id === sessFilter);
-      if (!targetSessions.length) return showToast("⚠️ 無對應場次");
+      if (!targetSessions.length) return showToast("⚠️ 今日尚無對應之開團場次");
       const batch = db.batch();
       targetSessions.forEach(sess => {
         const allOpenNames = storesList.filter(st => (sess.open_store_ids || []).includes(st.id)).map(st => st.name);
-        batch.set(db.collection("group_sessions").doc(sess.id), { meals_arrived: isArrived, arrived_store_names: isArrived ? allOpenNames : [], arrived_at_str: isArrived ? nowHM : "", is_manually_closed: isArrived ? true : sess.is_manually_closed }, { merge: true });
+        batch.set(db.collection("group_sessions").doc(sess.id), {
+          meals_arrived: isArrived,
+          arrived_store_names: isArrived ? allOpenNames : [],
+          arrived_at_str: isArrived ? nowHM : "",
+          is_manually_closed: isArrived ? true : sess.is_manually_closed
+        }, { merge: true });
       });
       await batch.commit();
       showToast(isArrived ? "📢 全數到齊通知已發布！" : "↩️ 已撤回通知");
     };
 
-    window.toggleSingleStoreArrivedNotice = async function(storeName) {
+    // 🌟 第 1 點：以「單一場次 ＋ 單一店家」為獨立控制單位，點擊某家店的到餐按鈕，絕不影響其他店家或其他場次！
+    window.toggleSingleStoreArrivedNotice = async function(sessionId, storeName) {
       const nowHM = getCurrentTimeHM();
-      const targetSessions = getTodaySessionsList().filter(sess => storesList.filter(st => (sess.open_store_ids || []).includes(st.id)).some(st => st.name === storeName));
-      const sessionsToUpdate = targetSessions.length ? targetSessions : [currentSession];
+      const todaySessions = getTodaySessionsList();
+      const targetSessions = (sessionId && sessionId !== "ALL")
+        ? todaySessions.filter(s => s.id === sessionId)
+        : todaySessions.filter(sess => storesList.filter(st => (sess.open_store_ids || []).includes(st.id)).some(st => st.name === storeName));
+
+      if (!targetSessions.length) return showToast("⚠️ 找不到該店家所屬的今日開團場次");
+
       const batch = db.batch();
       let isAdding = true;
-      sessionsToUpdate.forEach(sess => {
-        if (!sess || !sess.id) return;
-        const list = [...(sess.arrived_store_names || [])];
-        const idx = list.indexOf(storeName);
-        if (idx >= 0) { list.splice(idx, 1); isAdding = false; } else { list.push(storeName); isAdding = true; }
+
+      targetSessions.forEach(sess => {
+        const currentArrivedList = Array.isArray(sess.arrived_store_names) ? [...sess.arrived_store_names] : [];
+        const idx = currentArrivedList.indexOf(storeName);
+        if (idx >= 0) {
+          currentArrivedList.splice(idx, 1);
+          isAdding = false;
+        } else {
+          currentArrivedList.push(storeName);
+          isAdding = true;
+        }
+
         const openStores = storesList.filter(s => (sess.open_store_ids || []).includes(s.id));
-        const allOpenArrived = openStores.length > 0 && openStores.every(s => list.includes(s.name));
-        batch.set(db.collection("group_sessions").doc(sess.id), { arrived_store_names: list, meals_arrived: allOpenArrived, is_manually_closed: allOpenArrived ? true : sess.is_manually_closed, arrived_at_str: list.length > 0 ? nowHM : "" }, { merge: true });
+        const allOpenArrived = openStores.length > 0 && openStores.every(s => currentArrivedList.includes(s.name));
+
+        batch.set(db.collection("group_sessions").doc(sess.id), {
+          arrived_store_names: currentArrivedList,
+          meals_arrived: allOpenArrived,
+          is_manually_closed: allOpenArrived ? true : sess.is_manually_closed,
+          arrived_at_str: currentArrivedList.length > 0 ? nowHM : ""
+        }, { merge: true });
       });
+
       await batch.commit();
-      showToast(isAdding ? `🍱 【${storeName}】已到餐` : `↩️ 已取消`);
+      showToast(isAdding ? `🍱 【${storeName}】已標記到餐！所有訂購此店的員工單已同步顯示「已到餐」` : `↩️ 已取消【${storeName}】的到餐狀態`);
+    };
+    // 🌟 第 1 點 & 第 2 點：叫餐彙整中心依「場次 + 店家」獨立分組，每張卡片清楚顯示【場次 N：團購名稱】彩色徽章，且單店到餐按鈕獨立運作互不連動！
+    function renderStoreCallView(orders) {
+      const container = document.getElementById("subView_storeCall");
+      if (!container) return;
+      const period = document.getElementById("reportPeriodSelect")?.value || "today";
+      const isTodayPeriod = (period === "today");
+      const todayKey = getTodayKey();
+      const todaySessions = getTodaySessionsList();
+
+      const storeGroups = {};
+      orders.forEach(ord => {
+        const ordDate = ord.session_date || todayKey;
+        const shortDate = ordDate.length >= 10 ? ordDate.slice(5) : ordDate;
+        const ordSessId = ord.session_id || (todaySessions[0]?.id || "current");
+        const sessIdx = todaySessions.findIndex(s => s.id === ordSessId);
+        const sessObj = todaySessions[sessIdx] || allGroupSessions.find(s => s.id === ordSessId) || {};
+        const cleanSessTitle = formatCleanSessionTitle(sessObj.title || ord.session_title || "團購場次");
+        const sessBadgeText = sessIdx >= 0 ? `場次 ${sessIdx + 1}：${cleanSessTitle}` : cleanSessTitle;
+
+        (ord.items || []).forEach(it => {
+          const sName = it.store_name || "未分類店家";
+          const groupKey = isTodayPeriod ? `${ordSessId}__${sName}` : `HIST__${sName}`;
+
+          if (!storeGroups[groupKey]) {
+            const stObj = storesList.find(s => s.name === sName) || {};
+            storeGroups[groupKey] = {
+              storeName: sName,
+              sessionId: ordSessId,
+              sessionSortIdx: sessIdx >= 0 ? sessIdx : 99,
+              sessionBadgeText: sessBadgeText,
+              phone: stObj.phone || "",
+              totalQty: 0,
+              totalAmount: 0,
+              datesSet: new Set(),
+              itemsMap: {}
+            };
+          }
+          storeGroups[groupKey].datesSet.add(ordDate);
+          const key = `${it.name}${it.spec ? ` (${it.spec})` : ''}`;
+          if (!storeGroups[groupKey].itemsMap[key]) storeGroups[groupKey].itemsMap[key] = { qty: 0, subtotal: 0, buyers: [] };
+          storeGroups[groupKey].itemsMap[key].qty += Number(it.qty || 1);
+          storeGroups[groupKey].itemsMap[key].subtotal += Number(it.subtotal || 0);
+          const buyerLabel = isTodayPeriod ? `${ord.department}-${ord.employee_name}` : `[${shortDate}] ${ord.department}-${ord.employee_name}`;
+          storeGroups[groupKey].itemsMap[key].buyers.push(buyerLabel);
+          storeGroups[groupKey].totalQty += Number(it.qty || 1);
+          storeGroups[groupKey].totalAmount += Number(it.subtotal || 0);
+        });
+      });
+
+      const groupList = Object.values(storeGroups).sort((a, b) => {
+        if (a.sessionSortIdx !== b.sessionSortIdx) return a.sessionSortIdx - b.sessionSortIdx;
+        return a.storeName.localeCompare(b.storeName);
+      });
+
+      if (!groupList.length) {
+        container.innerHTML = `<div class="card" style="text-align:center; color:var(--sub);">所選期間內尚無已核准訂單</div>`;
+        return;
+      }
+
+      const badgeColors = [
+        { bg: "#dbeafe", text: "#1e40af", border: "#93c5fd" },
+        { bg: "#f3e8ff", text: "#6d28d9", border: "#d8b4fe" },
+        { bg: "#fef3c7", text: "#b45309", border: "#fde68a" },
+        { bg: "#dcfce7", text: "#15803d", border: "#86efac" }
+      ];
+
+      container.innerHTML = groupList.map(g => {
+        const sName = g.storeName;
+        const matchedSess = todaySessions.find(s => s.id === g.sessionId);
+        const sessArrivedNames = (matchedSess && Array.isArray(matchedSess.arrived_store_names))
+          ? matchedSess.arrived_store_names
+          : [];
+        // 🌟 嚴格檢查「這一家店」是否已在所屬場次的 arrived_store_names 中（或全場已到齊）
+        const isStoreArrived = Boolean(matchedSess && (matchedSess.meals_arrived || sessArrivedNames.includes(sName)));
+
+        const dateListStr = Array.from(g.datesSet).sort().join("、");
+        const hasTodayOrder = isTodayPeriod && g.datesSet.has(todayKey);
+        const cTheme = badgeColors[g.sessionSortIdx % badgeColors.length] || badgeColors[0];
+
+        const rowsHtml = Object.entries(g.itemsMap).map(([itemSpecName, info]) => `
+          <tr>
+            <td style="font-weight:800; font-size:15px;">${itemSpecName}</td>
+            <td style="font-weight:900; color:var(--primary); font-size:16px;">x ${info.qty}</td>
+            <td style="font-weight:700;">$${info.subtotal}</td>
+            <td style="font-size:12px; color:var(--sub);">${info.buyers.join("、")}</td>
+          </tr>
+        `).join('');
+
+        return `
+          <div class="card" style="border-left: 6px solid ${isStoreArrived && hasTodayOrder ? 'var(--green)' : 'var(--primary)'};">
+            <h3>
+              <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                <span style="background:${cTheme.bg}; color:${cTheme.text}; border:1px solid ${cTheme.border}; padding:4px 10px; border-radius:8px; font-size:13px; font-weight:900;">
+                  🎯 ${g.sessionBadgeText}
+                </span>
+                <span style="font-size:19px; font-weight:900;">🏪 ${sName}</span>
+                <span style="font-size:12px; background:#e2e8f0; color:#334155; padding:3px 8px; border-radius:6px; font-weight:800;">📅 ${dateListStr}</span>
+                ${g.phone ? `<a href="tel:${g.phone}" class="btn btn-gray" style="padding:4px 10px; font-size:12px; text-decoration:none;">📞 ${g.phone}</a>` : ''}
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span style="font-size:15px;">總數：<strong>${g.totalQty}份</strong> ｜ 應付：<strong style="color:var(--green); font-size:18px;">$${g.totalAmount}</strong></span>
+                ${hasTodayOrder ? `
+                  <button class="btn btn-green" onclick="copyStoreOrderLineText('${sName}', '${g.sessionId}')">📋 複製 LINE 叫餐</button>
+                  <button class="btn ${isStoreArrived ? 'btn-primary' : 'btn-orange'}" onclick="toggleSingleStoreArrivedNotice('${g.sessionId}', '${sName}')">
+                    ${isStoreArrived ? '✅ 已到餐 (點擊取消)' : '🍱 到餐通知'}
+                  </button>
+                ` : ''}
+              </div>
+            </h3>
+            <table class="data-table">
+              <thead><tr><th>餐點規格</th><th>數量</th><th>小計</th><th>明細</th></tr></thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.copyStoreOrderLineText = function(storeName, sessionId) {
+      const orders = getFilteredApprovedOrders().filter(o => !sessionId || sessionId === "ALL" || o.session_id === sessionId);
+      const itemsMap = {};
+      let totalQty = 0, totalAmt = 0;
+      orders.forEach(o => {
+        (o.items || []).forEach(it => {
+          if ((it.store_name || "未分類店家") !== storeName) return;
+          const key = `${it.name}${it.spec ? `(${it.spec})` : ''}`;
+          itemsMap[key] = (itemsMap[key] || 0) + Number(it.qty || 1);
+          totalQty += Number(it.qty || 1);
+          totalAmt += Number(it.subtotal || 0);
+        });
+      });
+      const lines = [`【${companySettings.store_name || '公司'} 訂購單】`, `🏪 店家：${storeName}`, `------------------------`, ...Object.entries(itemsMap).map(([k, q]) => `• ${k}  x${q}`), `------------------------`, `總數：${totalQty} 份 ｜ 總金額：$${totalAmt} 元`];
+      copyTextToClipboard(lines.join("\n"), `📋 已複製【${storeName}】叫餐單！`);
     };
 
     window.switchReportSubView = function(view) {
@@ -1897,99 +2144,6 @@
       renderStoreCallView(validOrders);
       renderEmployeeCollectView(validOrders);
     }
-
-    function renderStoreCallView(orders) {
-      const container = document.getElementById("subView_storeCall");
-      if (!container) return;
-      const period = document.getElementById("reportPeriodSelect")?.value || "today";
-      const isTodayPeriod = (period === "today");
-      const todayKey = getTodayKey();
-
-      const storeGroups = {};
-      orders.forEach(ord => {
-        const ordDate = ord.session_date || todayKey;
-        const shortDate = ordDate.length >= 10 ? ordDate.slice(5) : ordDate;
-        (ord.items || []).forEach(it => {
-          const sName = it.store_name || "未分類店家";
-          if (!storeGroups[sName]) {
-            const stObj = storesList.find(s => s.name === sName) || {};
-            storeGroups[sName] = { phone: stObj.phone || "", totalQty: 0, totalAmount: 0, datesSet: new Set(), itemsMap: {} };
-          }
-          storeGroups[sName].datesSet.add(ordDate);
-          const key = `${it.name}${it.spec ? ` (${it.spec})` : ''}`;
-          if (!storeGroups[sName].itemsMap[key]) storeGroups[sName].itemsMap[key] = { qty: 0, subtotal: 0, buyers: [] };
-          storeGroups[sName].itemsMap[key].qty += Number(it.qty || 1);
-          storeGroups[sName].itemsMap[key].subtotal += Number(it.subtotal || 0);
-          const buyerLabel = isTodayPeriod ? `${ord.department}-${ord.employee_name}` : `[${shortDate}] ${ord.department}-${ord.employee_name}`;
-          storeGroups[sName].itemsMap[key].buyers.push(buyerLabel);
-          storeGroups[sName].totalQty += Number(it.qty || 1);
-          storeGroups[sName].totalAmount += Number(it.subtotal || 0);
-        });
-      });
-
-      const storeNames = Object.keys(storeGroups);
-      if (!storeNames.length) {
-        container.innerHTML = `<div class="card" style="text-align:center; color:var(--sub);">所選期間內尚無已核准訂單</div>`;
-        return;
-      }
-      const arrivedStores = currentSession.arrived_store_names || [];
-
-      container.innerHTML = storeNames.map(sName => {
-        const g = storeGroups[sName];
-        const isStoreArrived = currentSession.meals_arrived || arrivedStores.includes(sName);
-        const dateListStr = Array.from(g.datesSet).sort().join("、");
-        const hasTodayOrder = isTodayPeriod && g.datesSet.has(todayKey);
-
-        const rowsHtml = Object.entries(g.itemsMap).map(([itemSpecName, info]) => `
-          <tr>
-            <td style="font-weight:800; font-size:15px;">${itemSpecName}</td>
-            <td style="font-weight:900; color:var(--primary); font-size:16px;">x ${info.qty}</td>
-            <td style="font-weight:700;">$${info.subtotal}</td>
-            <td style="font-size:12px; color:var(--sub);">${info.buyers.join("、")}</td>
-          </tr>
-        `).join('');
-
-        return `
-          <div class="card" style="border-left: 6px solid ${isStoreArrived && hasTodayOrder ? 'var(--green)' : 'var(--primary)'};">
-            <h3>
-              <div>
-                <span style="font-size:19px;">🏪 ${sName}</span>
-                <span style="font-size:12px; background:#e2e8f0; color:#334155; padding:3px 8px; border-radius:6px; margin-left:6px; font-weight:800;">📅 ${dateListStr}</span>
-                ${g.phone ? `<a href="tel:${g.phone}" class="btn btn-gray" style="margin-left:8px; padding:4px 10px; font-size:12px; text-decoration:none;">📞 ${g.phone}</a>` : ''}
-              </div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:15px;">總數：<strong>${g.totalQty}份</strong> ｜ 應付：<strong style="color:var(--green); font-size:18px;">$${g.totalAmount}</strong></span>
-                ${hasTodayOrder ? `
-                  <button class="btn btn-green" onclick="copyStoreOrderLineText('${sName}')">📋 複製 LINE 叫餐</button>
-                  <button class="btn ${isStoreArrived ? 'btn-primary' : 'btn-orange'}" onclick="toggleSingleStoreArrivedNotice('${sName}')">${isStoreArrived ? '✅ 已到餐' : '🍱 到餐通知'}</button>
-                ` : ''}
-              </div>
-            </h3>
-            <table class="data-table">
-              <thead><tr><th>餐點規格</th><th>數量</th><th>小計</th><th>明細</th></tr></thead>
-              <tbody>${rowsHtml}</tbody>
-            </table>
-          </div>
-        `;
-      }).join('');
-    }
-
-    window.copyStoreOrderLineText = function(storeName) {
-      const orders = getFilteredApprovedOrders();
-      const itemsMap = {};
-      let totalQty = 0, totalAmt = 0;
-      orders.forEach(o => {
-        (o.items || []).forEach(it => {
-          if ((it.store_name || "未分類店家") !== storeName) return;
-          const key = `${it.name}${it.spec ? `(${it.spec})` : ''}`;
-          itemsMap[key] = (itemsMap[key] || 0) + Number(it.qty || 1);
-          totalQty += Number(it.qty || 1);
-          totalAmt += Number(it.subtotal || 0);
-        });
-      });
-      const lines = [`【${companySettings.store_name || '公司'} 訂購單】`, `🏪 店家：${storeName}`, `------------------------`, ...Object.entries(itemsMap).map(([k, q]) => `• ${k}  x${q}`), `------------------------`, `總數：${totalQty} 份 ｜ 總金額：$${totalAmt} 元`];
-      copyTextToClipboard(lines.join("\n"), `📋 已複製叫餐單！`);
-    };
 
     function renderEmployeeCollectView(orders) {
       const container = document.getElementById("subView_empCollect");
