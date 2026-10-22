@@ -3,6 +3,12 @@ name: Sync Customers
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - index.html
+      - admin.html
 
 permissions:
   contents: read
@@ -10,6 +16,46 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check workflow
-        run: echo "Customer sync workflow is ready"
+      - name: Checkout template
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: template
+
+      - name: Checkout customer
+        uses: actions/checkout@v4
+        with:
+          repository: company-order/company-order-test1
+          token: ${{ secrets.CUSTOMER_SYNC_TOKEN }}
+          path: customer
+
+      - name: Merge customer files
+        working-directory: template
+        run: python3 sync_customers.py
+
+      - name: Create customer Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.CUSTOMER_SYNC_TOKEN }}
+        working-directory: customer
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "沒有需要同步的變更"
+            exit 0
+          fi
+
+          BRANCH="sync/template-${{ github.sha }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add index.html admin.html .sync-state.json
+          git commit -m "Sync updates from template"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "$BRANCH"
+
+          gh pr create \
+            --repo company-order/company-order-test1 \
+            --head "$BRANCH" \
+            --base main \
+            --title "同步範本網站更新" \
+            --body "由範本自動產生的更新建議。請先檢查變更，再決定是否合併。"
