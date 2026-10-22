@@ -6,14 +6,16 @@ import tempfile
 from pathlib import Path
 
 FILES = ("index.html", "admin.html")
-CUSTOMER_REPO = "company-order/company-order-test1"
 TEMPLATE_REPO = "company-order/company-order-templete"
 
 
 def run(*args, cwd=None, check=True):
     return subprocess.run(
-        args, cwd=cwd, check=check,
-        text=True, capture_output=True
+        args,
+        cwd=cwd,
+        check=check,
+        text=True,
+        capture_output=True
     )
 
 
@@ -21,11 +23,25 @@ def main():
     template = Path.cwd()
     customer = template.parent / "customer"
 
+    customer_repo = os.environ.get("CUSTOMER_REPO")
+    if not customer_repo:
+        raise RuntimeError("缺少 CUSTOMER_REPO 環境變數")
+
+    config = json.loads(
+        (template / "customers.json").read_text(encoding="utf-8")
+    )
+
+    if customer_repo not in config["customers"]:
+        raise RuntimeError(f"客戶不在清單內：{customer_repo}")
+
     state_path = customer / ".sync-state.json"
     state = json.loads(state_path.read_text(encoding="utf-8"))
 
     if state["source_repository"] != TEMPLATE_REPO:
         raise RuntimeError("同步來源不正確")
+
+    if state["source_branch"] != "main":
+        raise RuntimeError("同步來源分支不正確")
 
     if set(state["sync_files"]) != set(FILES):
         raise RuntimeError("同步檔案清單不正確")
@@ -72,7 +88,8 @@ def main():
 
             if result.returncode != 0:
                 raise RuntimeError(
-                    f"{filename} 合併衝突，已停止同步"
+                    f"{customer_repo} 的 {filename} "
+                    "合併衝突，已停止同步"
                 )
 
             changes[filename] = result.stdout
@@ -83,12 +100,13 @@ def main():
         )
 
     state["last_synced_commit"] = new_commit
+
     state_path.write_text(
         json.dumps(state, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8"
     )
 
-    print("兩個檔案合併完成，等待建立 PR")
+    print(f"{customer_repo} 合併完成，等待建立 PR")
 
 
 if __name__ == "__main__":
